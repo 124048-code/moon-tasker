@@ -83,7 +83,7 @@ class CreatureView(ft.Column):
     def __init__(self, db: Database, page: ft.Page):
         super().__init__()
         self.db = db
-        self.page = page
+        self._page = page
         self.creature_system = CreatureSystem(db)
         self.spacing = 15
         self.expand = True
@@ -436,12 +436,12 @@ class CreatureView(ft.Column):
         """誓約ダイアログを表示"""
         def on_agree(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
             self._show_name_input_dialog()
         
         def on_cancel(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         dialog = ft.AlertDialog(
             modal=True,
@@ -479,7 +479,7 @@ class CreatureView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END
         )
         
-        self.page.open(dialog)
+        self._page.open(dialog)
     
     def _show_name_input_dialog(self):
         """名前入力ダイアログを表示"""
@@ -497,28 +497,28 @@ class CreatureView(ft.Column):
             # バリデーション
             if not name:
                 error_text.value = "名前を入力してください"
-                self.page.update()
+                self._page.update()
                 return
             
             if len(name) < 1 or len(name) > 20:
                 error_text.value = "1〜20文字で入力してください"
-                self.page.update()
+                self._page.update()
                 return
             
             # NGワードチェック
             if self._contains_ng_word(name):
                 error_text.value = "不適切な言葉が含まれています"
-                self.page.update()
+                self._page.update()
                 return
             
             # 生命体を作成
             dialog.open = False
-            self.page.update()
+            self._page.update()
             self._create_new_creature(name)
         
         def on_cancel(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         dialog = ft.AlertDialog(
             modal=True,
@@ -544,7 +544,7 @@ class CreatureView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END
         )
         
-        self.page.open(dialog)
+        self._page.open(dialog)
     
     def _normalize_text(self, text: str) -> str:
         """テキストを正規化（カタカナ→ひらがな、記号除去、小文字化）"""
@@ -574,7 +574,7 @@ class CreatureView(ft.Column):
         # 画面を再構築
         self.controls.clear()
         self._build()
-        self.page.update()
+        self._page.update()
         
         # 歓迎メッセージ
         self._show_welcome_dialog(name)
@@ -583,7 +583,7 @@ class CreatureView(ft.Column):
         """歓迎ダイアログ"""
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         dialog = ft.AlertDialog(
             modal=True,
@@ -608,4 +608,4 @@ class CreatureView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self.page.open(dialog)
+        self._page.open(dialog)

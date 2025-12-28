@@ -16,7 +16,7 @@ class TimerView(ft.Column):
     def __init__(self, db: Database, page: ft.Page):
         super().__init__()
         self.db = db
-        self.page = page
+        self._page = page
         self.timer = TimerController()
         self.creature_system = CreatureSystem(db)
         self.spacing = 20
@@ -256,7 +256,7 @@ class TimerView(ft.Column):
         self.timer.start_single_task(quick_task)
         self.timer.on_complete = self._on_quick_task_complete
         self.status_text.value = "🚀 クイック集中タイム！"
-        self.page.update()
+        self._page.update()
     
     def _on_quick_task_complete(self, task):
         """クイックタスク完了コールバック"""
@@ -274,21 +274,21 @@ class TimerView(ft.Column):
         
         # 完了処理
         self._exit_focus_mode()
-        self.page.run_task(self._show_completion_dialog_async, 1)
+        self._page.run_task(self._show_completion_dialog_async, 1)
     
     def _go_to_playlist_view(self, e):
         """プレイリスト管理画面に移動"""
-        if hasattr(self.page, 'navigation_rail'):
-            self.page.navigation_rail.selected_index = 2
-        if hasattr(self.page, 'change_view'):
-            self.page.change_view(2)
+        if hasattr(self._page, 'navigation_rail'):
+            self._page.navigation_rail.selected_index = 2
+        if hasattr(self._page, 'change_view'):
+            self._page.change_view(2)
     
     def on_playlist_select(self, e):
         """プレイリスト選択時にスケジュール表を生成"""
         if not self.playlist_dropdown.value:
             self.schedule_column.controls.clear()
             self.schedule_column.controls.append(ft.Text("プレイリストを選択してください", color="#9e9e9e"))
-            self.page.update()
+            self._page.update()
             return
         
         playlist_id = int(self.playlist_dropdown.value)
@@ -296,7 +296,7 @@ class TimerView(ft.Column):
         lifestyle = self.db.get_lifestyle_settings()
         
         self._generate_schedule(tasks, lifestyle)
-        self.page.update()
+        self._page.update()
     
     def _generate_schedule(self, tasks, lifestyle):
         """今日のスケジュールを生成"""
@@ -400,7 +400,7 @@ class TimerView(ft.Column):
         
         if not tasks:
             self.status_text.value = "プレイリストにタスクがありません"
-            self.page.update()
+            self._page.update()
             return
         
         # 集中モードに切り替え
@@ -408,8 +408,8 @@ class TimerView(ft.Column):
         self.stop_warning_count = 0
         
         # ナビゲーションを非表示にする
-        if hasattr(self.page, 'navigation_rail'):
-            self.page.navigation_rail.visible = False
+        if hasattr(self._page, 'navigation_rail'):
+            self._page.navigation_rail.visible = False
         
         # 進捗を表示
         self.progress_text.value = f"1 / {len(tasks)}"
@@ -426,10 +426,10 @@ class TimerView(ft.Column):
         
         # UIを再構築
         self._build()
-        self.page.update()
+        self._page.update()
         
         # プレイリスト連続タイマー開始
-        self.page.run_task(self.timer.start_playlist, tasks)
+        self._page.run_task(self.timer.start_playlist, tasks)
     
     def pause_timer(self, e):
         """タイマー一時停止/再開"""
@@ -438,7 +438,7 @@ class TimerView(ft.Column):
             self.status_text.value = "⏸️ 一時停止中..."
         else:
             self.timer.resume()
-        self.page.update()
+        self._page.update()
     
     def on_resume_callback(self):
         """タイマー再開コールバック"""
@@ -447,8 +447,8 @@ class TimerView(ft.Column):
                 self.status_text.value = f"休憩中 ☕ ({self.timer.current_task.break_duration}分)"
             else:
                 self.status_text.value = f"作業中: {self.timer.current_task.title}"
-        self.page.run_task(self.timer.resume_countdown)
-        self.page.update()
+        self._page.run_task(self.timer.resume_countdown)
+        self._page.update()
     
     def confirm_stop_timer(self, e):
         """タイマー中止確認ダイアログ（2段階警告）"""
@@ -456,18 +456,18 @@ class TimerView(ft.Column):
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         def proceed_to_second_warning(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
             # 少し遅延して第2警告を表示
-            self.page.run_task(self._show_second_warning)
+            self._page.run_task(self._show_second_warning)
         
         def actually_stop(e):
             dialog.open = False
             self.stop_timer(None)
-            self.page.update()
+            self._page.update()
         
         if self.stop_warning_count == 1:
             # 第1警告
@@ -528,9 +528,9 @@ class TimerView(ft.Column):
                 actions_alignment=ft.MainAxisAlignment.END,
             )
         
-        self.page.overlay.append(dialog)
+        self._page.overlay.append(dialog)
         dialog.open = True
-        self.page.update()
+        self._page.update()
     
     async def _show_second_warning(self):
         """第2警告を表示"""
@@ -543,7 +543,7 @@ class TimerView(ft.Column):
         self.timer.stop()
         self._exit_focus_mode()
         self.status_text.value = "中止しました"
-        self.page.update()
+        self._page.update()
     
     def _exit_focus_mode(self):
         """集中モードを終了"""
@@ -551,8 +551,8 @@ class TimerView(ft.Column):
         self.stop_warning_count = 0
         
         # ナビゲーションを再表示
-        if hasattr(self.page, 'navigation_rail'):
-            self.page.navigation_rail.visible = True
+        if hasattr(self._page, 'navigation_rail'):
+            self._page.navigation_rail.visible = True
         
         self._reset_ui()
         self._build()
@@ -595,7 +595,7 @@ class TimerView(ft.Column):
         """タイマー更新コールバック"""
         self.timer_display.value = self.timer.get_formatted_time()
         self._check_lifestyle_notifications()
-        self.page.update()
+        self._page.update()
     
     def on_task_start(self, task: Task):
         """タスク開始コールバック"""
@@ -610,12 +610,12 @@ class TimerView(ft.Column):
         else:
             self.next_task_text.value = "🎯 最後のタスクです！"
         
-        self.page.update()
+        self._page.update()
     
     def on_break_start(self, task: Task):
         """休憩開始コールバック"""
         self.status_text.value = f"休憩中 ☕ ({task.break_duration}分)"
-        self.page.update()
+        self._page.update()
     
     def on_task_complete(self, task: Task):
         """個別タスク完了コールバック"""
@@ -640,7 +640,7 @@ class TimerView(ft.Column):
     def on_next_task_start(self, task: Task, index: int, total: int):
         """次のタスク開始コールバック"""
         self.progress_text.value = f"{index + 1} / {total}"
-        self.page.update()
+        self._page.update()
     
     def on_playlist_complete(self):
         """プレイリスト全完了コールバック"""
@@ -648,7 +648,7 @@ class TimerView(ft.Column):
         completed_count = len(self.timer.playlist_tasks) if self.timer.playlist_tasks else 0
         self._exit_focus_mode()
         # 非同期でダイアログ表示（ページ更新タイミングを確保）
-        self.page.run_task(self._show_completion_dialog_async, completed_count)
+        self._page.run_task(self._show_completion_dialog_async, completed_count)
     
     async def _show_completion_dialog_async(self, completed_count: int):
         """達成ダイアログを非同期で表示"""
@@ -659,13 +659,13 @@ class TimerView(ft.Column):
     def _show_completion_dialog(self, completed_count: int):
         """達成ダイアログを表示"""
         def go_home(e):
-            self.page.close(dialog)
+            self._page.close(dialog)
             # ホーム画面に戻る
-            if hasattr(self.page, 'navigation_rail'):
-                self.page.navigation_rail.selected_index = 0
-            if hasattr(self.page, 'change_view'):
-                self.page.change_view(0)
-            self.page.update()
+            if hasattr(self._page, 'navigation_rail'):
+                self._page.navigation_rail.selected_index = 0
+            if hasattr(self._page, 'change_view'):
+                self._page.change_view(0)
+            self._page.update()
             # プレゼント演出
             self._show_pending_presents()
             # 進化演出
@@ -717,9 +717,9 @@ class TimerView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER,
         )
         
-        self.page.open(dialog)
+        self._page.open(dialog)
         self._load_playlists()
-        self.page.update()
+        self._page.update()
     
     
     def _check_evolution_after_task(self):
@@ -779,7 +779,7 @@ class TimerView(ft.Column):
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
             # 複数進化の場合は次を表示
             if len(evolutions) > 1:
                 self._show_evolution_animation(evolutions[1:])
@@ -818,7 +818,7 @@ class TimerView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self.page.open(dialog)
+        self._page.open(dialog)
     
     def _show_badge_unlock_animation(self, badges):
         """称号獲得演出ダイアログ"""
@@ -836,7 +836,7 @@ class TimerView(ft.Column):
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
             # 複数獲得の場合は次を表示
             if len(badges) > 1:
                 self._show_badge_unlock_animation(badges[1:])
@@ -881,7 +881,7 @@ class TimerView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self.page.open(dialog)
+        self._page.open(dialog)
     
     def _show_pending_presents(self):
         """保留中のプレゼント演出を表示"""
@@ -911,7 +911,7 @@ class TimerView(ft.Column):
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
             # 複数プレゼントの場合は次を表示
             if len(presents) > 1:
                 self._show_present_dialog(presents[1:])
@@ -952,4 +952,4 @@ class TimerView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self.page.open(dialog)
+        self._page.open(dialog)

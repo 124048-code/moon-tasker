@@ -14,7 +14,7 @@ class MoonCycleView(ft.Column):
     def __init__(self, db: Database, page: ft.Page):
         super().__init__()
         self.db = db
-        self.page = page
+        self._page = page
         self.moon_calc = MoonCycleCalculator()
         self.spacing = 20
         self.expand = True
@@ -451,7 +451,7 @@ class MoonCycleView(ft.Column):
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         def add_tasks(e):
             for cb in task_checkboxes:
@@ -471,9 +471,9 @@ class MoonCycleView(ft.Column):
                 ft.TextButton("追加", on_click=add_tasks),
             ]
         )
-        self.page.overlay.append(dialog)
+        self._page.overlay.append(dialog)
         dialog.open = True
-        self.page.update()
+        self._page.update()
     
     def _set_to_timer(self, e):
         """未完了タスクをタイマー用プレイリストにセット"""
@@ -511,12 +511,12 @@ class MoonCycleView(ft.Column):
             self.db.add_task_to_playlist(playlist_id, task.id)
         
         # 成功メッセージ（簡易）
-        self.page.snack_bar = ft.SnackBar(
+        self._page.snack_bar = ft.SnackBar(
             content=ft.Text(f"タイマーにセットしました！プレイリスト「{playlist_name}」を選択してください"),
             action="OK"
         )
-        self.page.snack_bar.open = True
-        self.page.update()
+        self._page.snack_bar.open = True
+        self._page.update()
     
     def _pick_date(self, date_type: str):
         """日付ピッカーを表示"""
@@ -537,9 +537,9 @@ class MoonCycleView(ft.Column):
             last_date=datetime(2030, 12, 31),
             on_change=on_date_picked
         )
-        self.page.overlay.append(date_picker)
+        self._page.overlay.append(date_picker)
         date_picker.open = True
-        self.page.update()
+        self._page.update()
     
     def _create_cycle(self, e):
         """新しいサイクルを作成"""
@@ -600,7 +600,7 @@ class MoonCycleView(ft.Column):
         # 完了確認ダイアログ
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         def confirm_complete(e):
             # Check/Actフィールドを保存
@@ -614,7 +614,7 @@ class MoonCycleView(ft.Column):
             self.db.update_moon_cycle(self.current_cycle)
             dialog.open = False
             self._refresh()
-            self.page.update()
+            self._page.update()
         
         # 達成率によるメッセージ
         if total_count > 0:
@@ -658,13 +658,13 @@ class MoonCycleView(ft.Column):
             ],
             actions_alignment=ft.MainAxisAlignment.END
         )
-        self.page.open(dialog)
+        self._page.open(dialog)
     
     def _confirm_delete_cycle(self, e):
         """削除確認ダイアログ"""
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         def delete_cycle(e):
             if self.current_cycle:
@@ -680,9 +680,9 @@ class MoonCycleView(ft.Column):
                 ft.TextButton("削除", on_click=delete_cycle),
             ]
         )
-        self.page.overlay.append(dialog)
+        self._page.overlay.append(dialog)
         dialog.open = True
-        self.page.update()
+        self._page.update()
     
     def _refresh(self):
         """画面を更新"""
@@ -726,10 +726,10 @@ class MoonCycleView(ft.Column):
         self.db.create_moon_cycle(new_cycle)
         
         # 成功メッセージ
-        self.page.snack_bar = ft.SnackBar(
+        self._page.snack_bar = ft.SnackBar(
             content=ft.Text("✅ 前サイクルから引き継いで新しいサイクルを開始しました！"),
             action="OK"
         )
-        self.page.snack_bar.open = True
+        self._page.snack_bar.open = True
         
         self._refresh()

@@ -13,7 +13,7 @@ class HomeView(ft.Column):
     def __init__(self, db: Database, page: ft.Page = None):
         super().__init__()
         self.db = db
-        self.page = page
+        self._page = page
         self.creature_system = CreatureSystem(db)
         self.moon_calc = MoonCycleCalculator()
         self.spacing = 20
@@ -212,9 +212,9 @@ class HomeView(ft.Column):
     
     def _start_quick_timer(self, e):
         """クイックスタートタイマーを開始"""
-        if self.page and hasattr(self.page, 'change_view'):
+        if self.page and hasattr(self._page, 'change_view'):
             # タイマー画面に移動し、クイックモードフラグを設定
-            self.page.quick_start_mode = True
-            if hasattr(self.page, 'navigation_rail'):
-                self.page.navigation_rail.selected_index = 1
-            self.page.change_view(1)
+            self._page.quick_start_mode = True
+            if hasattr(self._page, 'navigation_rail'):
+                self._page.navigation_rail.selected_index = 1
+            self._page.change_view(1)

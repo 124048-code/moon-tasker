@@ -12,7 +12,7 @@ class FriendView(ft.Column):
     
     def __init__(self, page: ft.Page):
         super().__init__()
-        self.page = page
+        self._page = page
         self.db = Database()
         self.creature_system = CreatureSystem(self.db)
         self.auth = get_auth()
@@ -276,11 +276,11 @@ class FriendView(ft.Column):
                 )
             dialog.open = False
             self._build()
-            self.page.update()
+            self._page.update()
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         dialog = ft.AlertDialog(
             modal=True,
@@ -295,9 +295,9 @@ class FriendView(ft.Column):
             ],
         )
         
-        self.page.overlay.append(dialog)
+        self._page.overlay.append(dialog)
         dialog.open = True
-        self.page.update()
+        self._page.update()
     
     def _add_friend(self, e):
         """フレンド追加ダイアログ"""
@@ -315,14 +315,14 @@ class FriendView(ft.Column):
                 )
                 if success:
                     snackbar = ft.SnackBar(content=ft.Text("フレンド申請を送信しました！"))
-                    self.page.overlay.append(snackbar)
+                    self._page.overlay.append(snackbar)
                     snackbar.open = True
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         # 自分のフレンドコードを表示
         my_code = self.auth.user_id or "ログインが必要です"
@@ -348,9 +348,9 @@ class FriendView(ft.Column):
             ],
         )
         
-        self.page.overlay.append(dialog)
+        self._page.overlay.append(dialog)
         dialog.open = True
-        self.page.update()
+        self._page.update()
     
     def _login(self, e):
         """ログイン"""
@@ -365,7 +365,7 @@ class FriendView(ft.Column):
         if success:
             self._show_success("ログインしました！")
             self._build()
-            self.page.update()
+            self._page.update()
         else:
             self._show_error("ログインに失敗しました。メールアドレスとパスワードを確認してください。")
     
@@ -398,13 +398,13 @@ class FriendView(ft.Column):
     def _show_error(self, message: str):
         """エラーを表示"""
         snackbar = ft.SnackBar(content=ft.Text(message), bgcolor="#f44336")
-        self.page.overlay.append(snackbar)
+        self._page.overlay.append(snackbar)
         snackbar.open = True
-        self.page.update()
+        self._page.update()
     
     def _show_success(self, message: str):
         """成功メッセージを表示"""
         snackbar = ft.SnackBar(content=ft.Text(message), bgcolor="#4caf50")
-        self.page.overlay.append(snackbar)
+        self._page.overlay.append(snackbar)
         snackbar.open = True
-        self.page.update()
+        self._page.update()

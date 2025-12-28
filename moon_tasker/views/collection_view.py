@@ -12,7 +12,7 @@ class CollectionView(ft.Column):
     def __init__(self, db: Database, page: ft.Page = None):
         super().__init__()
         self.db = db
-        self.page = page
+        self._page = page
         self.badge_system = BadgeSystem(db)
         self.spacing = 20
         self.expand = True
@@ -26,9 +26,9 @@ class CollectionView(ft.Column):
         
         # 図鑑を開いた時に称号達成をチェック（自動解放）
         newly_unlocked = self.badge_system.check_all_badges()
-        if newly_unlocked and self.page:
+        if newly_unlocked and self._page:
             # 新しく解放された称号があれば演出表示
-            self.page.run_task(self._show_unlock_animation_async, newly_unlocked)
+            self._page.run_task(self._show_unlock_animation_async, newly_unlocked)
         
         title = ft.Text("星座図鑑 ⭐", size=28, weight=ft.FontWeight.BOLD)
         
@@ -183,7 +183,7 @@ class CollectionView(ft.Column):
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         dialog = ft.AlertDialog(
             title=ft.Row([
@@ -207,13 +207,13 @@ class CollectionView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END
         )
         
-        self.page.open(dialog)
+        self._page.open(dialog)
     
     def check_and_show_new_badges(self):
         """新しく獲得した称号をチェックして演出表示"""
         newly_unlocked = self.badge_system.check_all_badges()
         
-        if newly_unlocked and self.page:
+        if newly_unlocked and self._page:
             # 演出ダイアログを表示
             self._show_unlock_animation(newly_unlocked)
         
@@ -234,7 +234,7 @@ class CollectionView(ft.Column):
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
             # 複数獲得の場合は次を表示
             if len(badges) > 1:
                 self._show_unlock_animation(badges[1:])
@@ -279,7 +279,7 @@ class CollectionView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self.page.open(dialog)
+        self._page.open(dialog)
     
     async def _show_unlock_animation_async(self, badges):
         """非同期で称号獲得演出を表示"""

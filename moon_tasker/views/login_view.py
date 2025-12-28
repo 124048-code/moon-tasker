@@ -10,7 +10,7 @@ class LoginView(ft.Column):
     
     def __init__(self, page: ft.Page, on_login_success):
         super().__init__()
-        self.page = page
+        self._page = page
         self.on_login_success = on_login_success
         self.auth = get_auth()
         self.spacing = 30
@@ -168,9 +168,9 @@ class LoginView(ft.Column):
             bgcolor="#f44336",
             action="OK"
         )
-        self.page.overlay.append(snackbar)
+        self._page.overlay.append(snackbar)
         snackbar.open = True
-        self.page.update()
+        self._page.update()
     
     def _show_success(self, message: str):
         """成功メッセージを表示"""
@@ -179,6 +179,6 @@ class LoginView(ft.Column):
             bgcolor="#4caf50",
             action="OK"
         )
-        self.page.overlay.append(snackbar)
+        self._page.overlay.append(snackbar)
         snackbar.open = True
-        self.page.update()
+        self._page.update()

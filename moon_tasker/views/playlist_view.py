@@ -13,7 +13,7 @@ class PlaylistView(ft.Column):
     def __init__(self, db: Database, page: ft.Page):
         super().__init__()
         self.db = db
-        self.page = page
+        self._page = page
         self.optimizer = ScheduleOptimizer()
         self.spacing = 20
         self.expand = True
@@ -271,7 +271,7 @@ class PlaylistView(ft.Column):
     def _refresh_ui(self):
         """UI全体を更新"""
         self._load_data()
-        self.page.update()
+        self._page.update()
     
     def on_playlist_change(self, e):
         """プレイリスト選択変更"""
@@ -282,7 +282,7 @@ class PlaylistView(ft.Column):
         
         self._build_playlist_tasks()
         self._build_available_tasks()
-        self.page.update()
+        self._page.update()
     
     def create_playlist(self, e):
         """プレイリスト作成"""
@@ -301,7 +301,7 @@ class PlaylistView(ft.Column):
         
         self._load_data()
         self.playlist_dropdown.value = str(playlist_id)
-        self.page.update()
+        self._page.update()
     
     def delete_playlist(self, e):
         """プレイリスト削除"""
@@ -321,7 +321,7 @@ class PlaylistView(ft.Column):
         self.db.add_task_to_playlist(self.selected_playlist_id, task_id)
         self._build_playlist_tasks()
         self._build_available_tasks()
-        self.page.update()
+        self._page.update()
     
     def remove_from_playlist(self, task_id: int):
         """タスクをプレイリストから削除"""
@@ -331,7 +331,7 @@ class PlaylistView(ft.Column):
         self.db.remove_task_from_playlist(self.selected_playlist_id, task_id)
         self._build_playlist_tasks()
         self._build_available_tasks()
-        self.page.update()
+        self._page.update()
     
     def move_task_up(self, index: int):
         """タスクを上に移動"""
@@ -344,7 +344,7 @@ class PlaylistView(ft.Column):
         
         self.db.reorder_playlist_tasks(self.selected_playlist_id, task_ids)
         self._build_playlist_tasks()
-        self.page.update()
+        self._page.update()
     
     def move_task_down(self, index: int):
         """タスクを下に移動"""
@@ -360,7 +360,7 @@ class PlaylistView(ft.Column):
         
         self.db.reorder_playlist_tasks(self.selected_playlist_id, task_ids)
         self._build_playlist_tasks()
-        self.page.update()
+        self._page.update()
     
     def create_task(self, e):
         """タスク作成"""
@@ -414,9 +414,9 @@ class PlaylistView(ft.Column):
                 content=ft.Text("最適化には2つ以上のタスクが必要です"),
                 action="OK"
             )
-            self.page.overlay.append(snackbar)
+            self._page.overlay.append(snackbar)
             snackbar.open = True
-            self.page.update()
+            self._page.update()
             return
         
         # 現在の生活設定を取得
@@ -431,7 +431,7 @@ class PlaylistView(ft.Column):
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         def apply_balanced(e):
             dialog.open = False
@@ -451,7 +451,7 @@ class PlaylistView(ft.Column):
         
         def show_lifestyle_settings(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
             self.show_lifestyle_dialog()
         
         dialog = ft.AlertDialog(
@@ -480,9 +480,9 @@ class PlaylistView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END,
         )
         
-        self.page.overlay.append(dialog)
+        self._page.overlay.append(dialog)
         dialog.open = True
-        self.page.update()
+        self._page.update()
     
     def show_lifestyle_dialog(self):
         """生活設定ダイアログを表示"""
@@ -499,7 +499,7 @@ class PlaylistView(ft.Column):
         
         def close_dialog(e):
             dialog.open = False
-            self.page.update()
+            self._page.update()
         
         def save_settings(e):
             try:
@@ -517,9 +517,9 @@ class PlaylistView(ft.Column):
                 dialog.open = False
                 
                 snackbar = ft.SnackBar(content=ft.Text("✅ 生活設定を保存しました！"), action="OK")
-                self.page.overlay.append(snackbar)
+                self._page.overlay.append(snackbar)
                 snackbar.open = True
-                self.page.update()
+                self._page.update()
             except ValueError:
                 pass
         
@@ -542,9 +542,9 @@ class PlaylistView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END,
         )
         
-        self.page.overlay.append(dialog)
+        self._page.overlay.append(dialog)
         dialog.open = True
-        self.page.update()
+        self._page.update()
     
     def apply_ai_optimization(self, mode: str, time_limit: int = None):
         """AI最適化を適用"""
@@ -570,13 +570,13 @@ class PlaylistView(ft.Column):
         self.db.reorder_playlist_tasks(self.selected_playlist_id, optimized_ids)
         
         self._build_playlist_tasks()
-        self.page.update()
+        self._page.update()
         
         mode_names = {"balanced": "バランス型", "genetic": "遺伝的アルゴリズム", "priority": "優先度"}
         snackbar = ft.SnackBar(
             content=ft.Text(f"🧬 {mode_names.get(mode, mode)}で{len(optimized)}個のタスクを最適化しました！"),
             action="OK"
         )
-        self.page.overlay.append(snackbar)
+        self._page.overlay.append(snackbar)
         snackbar.open = True
-        self.page.update()
+        self._page.update()
