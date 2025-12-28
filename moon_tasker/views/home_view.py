@@ -109,7 +109,7 @@ class HomeView(ft.Column):
             image_filename = self.creature_system.get_image_filename(creature)
             image_path = f"moon_tasker/assets/creature/{image_filename}"
             if os.path.exists(image_path):
-                creature_visual = ft.Image(src=image_path, width=100, height=100, fit=ft.ImageFit.CONTAIN)
+                creature_visual = ft.Image(src=image_path, width=100, height=100, fit="contain")
             else:
                 creature_visual = ft.Text(self.creature_system.get_creature_emoji(creature), size=70)
             

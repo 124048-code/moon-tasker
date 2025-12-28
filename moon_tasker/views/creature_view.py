@@ -260,7 +260,7 @@ class CreatureView(ft.Column):
         
         import os
         if os.path.exists(image_path):
-            creature_visual = ft.Image(src=image_path, width=150, height=150, fit=ft.ImageFit.CONTAIN)
+            creature_visual = ft.Image(src=image_path, width=150, height=150, fit="contain")
         else:
             creature_visual = ft.Text(self.creature_system.get_creature_emoji(creature), size=100)
         

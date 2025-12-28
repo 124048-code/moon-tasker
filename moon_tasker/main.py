@@ -191,7 +191,7 @@ def main(page: ft.Page):
             ft.Container(
                 content=ft.Image(
                     src=bg_image_path,
-                    fit=ft.ImageFit.COVER,
+                    fit="cover",
                     width=2000,  # 十分大きな幅
                     height=2000,  # 十分大きな高さ
                 ),
