@@ -47,7 +47,7 @@ class FriendView(ft.Column):
             
             login_card = ft.Container(
                 content=ft.Column([
-                    ft.Icon(ft.icons.PEOPLE, size=50, color="#64b5f6"),
+                    ft.Icon("people", size=50, color="#64b5f6"),
                     ft.Text("ログインしてフレンド機能を使おう！", size=16, weight=ft.FontWeight.BOLD),
                     ft.Text("データがクラウドに保存されます", size=12, color="#9e9e9e"),
                     ft.Container(height=10),

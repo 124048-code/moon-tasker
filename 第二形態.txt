@@ -1,0 +1,1019 @@
+import asyncio
+import sqlite3
+import datetime
+import os
+import random
+import flet as ft
+
+# ==========================================
+# 1. デザイン・定数
+# ==========================================
+COLOR_BG = "#0f172a"
+COLOR_CARD = "#1e293b"
+COLOR_TEXT_MAIN = "#fdfbd3"
+COLOR_ACCENT = "#38bdf8"
+
+CATEGORIES = {
+    "Work": {"icon": ft.Icons.WORK, "label": "仕事"},
+    "Study": {"icon": ft.Icons.AUTO_STORIES, "label": "学習"},
+    "Chores": {"icon": ft.Icons.CLEANING_SERVICES, "label": "家事"},
+    "Wellness": {"icon": ft.Icons.SELF_IMPROVEMENT, "label": "休憩・健康"},
+    "Creative": {"icon": ft.Icons.BRUSH, "label": "創作"},
+}
+
+DIFFICULTY_MAP = {
+    "Easy": {"min": 10, "points": 10},
+    "Normal": {"min": 25, "points": 30},
+    "Hard": {"min": 50, "points": 60}
+}
+
+BADGE_DATA = {
+    "Lyra":      {"name": "琴座 (Lyra)",      "icon": "badge_lyra.png",      "msg": "知恵の星が輝きました",     "condition": "カテゴリ「学習」を5回完了"},
+    "Capricorn": {"name": "山羊座 (Capricorn)", "icon": "badge_capricorn.png", "msg": "積み上げた努力の証です",     "condition": "カテゴリ「仕事」を5回完了"},
+    "Virgo":     {"name": "乙女座 (Virgo)",     "icon": "badge_virgo.png",     "msg": "整った生活への祝福です",     "condition": "カテゴリ「家事」を5回完了"},
+    "Pisces":    {"name": "魚座 (Pisces)",      "icon": "badge_pisces.png",      "msg": "創造の海を泳ぎ切りました",   "condition": "カテゴリ「創作」を5回完了"},
+    "Orion":     {"name": "オリオン座 (Orion)",  "icon": "badge_orion.png",     "msg": "困難を狩る強さを称えます",   "condition": "難易度「Hard」をクリア"},
+    "Polaris":   {"name": "北極星 (Polaris)",    "icon": "badge_polaris.png",     "msg": "不動の道標、1000Pt到達",   "condition": "合計スコア 1000Pt 到達"},
+}
+
+# ==========================================
+# 2. データベース管理
+# ==========================================
+class DatabaseManager:
+    def __init__(self, db_name="moon_tasker.db"):
+        self.conn = sqlite3.connect(db_name, check_same_thread=False)
+        self.create_tables()
+
+    def create_tables(self):
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS task_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_name TEXT,
+                category TEXT,
+                difficulty TEXT,
+                points INTEGER,
+                is_goal_related INTEGER DEFAULT 0,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("CREATE TABLE IF NOT EXISTS user_stats (key TEXT PRIMARY KEY, value INTEGER)")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_badges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                badge_code TEXT UNIQUE,
+                earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS moon_cycles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                theme TEXT,
+                category TEXT,
+                deadline DATE,
+                status TEXT DEFAULT 'active',
+                finish_type TEXT,
+                review_stars INTEGER,
+                review_comment TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cycle_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cycle_id INTEGER,
+                content TEXT,
+                is_completed INTEGER DEFAULT 0
+            )
+        """)
+        self.conn.commit()
+
+    def add_score(self, points):
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT OR IGNORE INTO user_stats (key, value) VALUES ('total_score', 0)")
+        cursor.execute("UPDATE user_stats SET value = value + ? WHERE key = 'total_score'", (points,))
+        self.conn.commit()
+
+    def get_total_score(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT value FROM user_stats WHERE key = 'total_score'")
+        res = cursor.fetchone()
+        return res[0] if res else 0
+
+    def log_task(self, name, category, difficulty, points, is_goal):
+        cursor = self.conn.cursor()
+        goal_flag = 1 if is_goal else 0
+        cursor.execute(
+            "INSERT INTO task_history (task_name, category, difficulty, points, is_goal_related) VALUES (?, ?, ?, ?, ?)",
+            (name, category, difficulty, points, goal_flag)
+        )
+        self.conn.commit()
+    
+    def get_category_count(self, category_key):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM task_history WHERE category = ?", (category_key,))
+        return cursor.fetchone()[0]
+
+    def has_badge(self, badge_code):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT 1 FROM user_badges WHERE badge_code = ?", (badge_code,))
+        return cursor.fetchone() is not None
+
+    def award_badge(self, badge_code):
+        if self.has_badge(badge_code):
+            return False
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT INTO user_badges (badge_code) VALUES (?)", (badge_code,))
+        self.conn.commit()
+        return True
+
+    def get_active_cycle(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT id, theme, category, deadline, status FROM moon_cycles WHERE status IN ('active', 'review') ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        if row:
+            return {"id": row[0], "theme": row[1], "category": row[2], "deadline": row[3], "status": row[4]}
+        return None
+
+    def start_cycle(self, theme, category, deadline):
+        cursor = self.conn.cursor()
+        cursor.execute("UPDATE moon_cycles SET status = 'archived' WHERE status IN ('active', 'review')")
+        cursor.execute("INSERT INTO moon_cycles (theme, category, deadline) VALUES (?, ?, ?)", (theme, category, deadline))
+        self.conn.commit()
+
+    def move_to_review(self, cycle_id, finish_type):
+        cursor = self.conn.cursor()
+        cursor.execute("UPDATE moon_cycles SET status = 'review', finish_type = ? WHERE id = ?", (finish_type, cycle_id))
+        self.conn.commit()
+
+    def complete_cycle(self, cycle_id, stars, comment):
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            UPDATE moon_cycles 
+            SET status = 'completed', review_stars = ?, review_comment = ?, completed_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        """, (stars, comment, cycle_id))
+        self.conn.commit()
+
+    def add_action(self, cycle_id, content):
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT INTO cycle_actions (cycle_id, content) VALUES (?, ?)", (cycle_id, content))
+        self.conn.commit()
+
+    def get_actions(self, cycle_id):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT id, content, is_completed FROM cycle_actions WHERE cycle_id = ?", (cycle_id,))
+        return [{"id": r[0], "content": r[1], "is_completed": bool(r[2])} for r in cursor.fetchall()]
+
+    def toggle_action(self, action_id, is_completed):
+        cursor = self.conn.cursor()
+        val = 1 if is_completed else 0
+        cursor.execute("UPDATE cycle_actions SET is_completed = ? WHERE id = ?", (val, action_id))
+        self.conn.commit()
+
+    def delete_action(self, action_id):
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM cycle_actions WHERE id = ?", (action_id,))
+        self.conn.commit()
+
+db = DatabaseManager()
+
+# ==========================================
+# 3. ユーティリティ
+# ==========================================
+def get_moon_phase_info():
+    base_date = datetime.datetime(2023, 1, 22)
+    today = datetime.datetime.now()
+    days_passed = (today - base_date).total_seconds() / 86400
+    lunation = days_passed % 29.53
+    phase_idx = int((lunation / 29.53) * 8) % 8
+    
+    # Python的な正しい書き方（if文で展開）
+    name, advice = ("Moon", "Focus")
+    if phase_idx == 0:
+        name, advice = "新月 (New Moon)", "計画と種まき: 目標設定とリセットに最適"
+    elif phase_idx == 1:
+        name, advice = "三日月 (Waxing Crescent)", "芽吹き: 小さなアクションを開始"
+    elif phase_idx == 2:
+        name, advice = "上弦 (First Quarter)", "実行と推進: 課題への集中的な取り組み"
+    elif phase_idx == 3:
+        name, advice = "十三夜 (Waxing Gibbous)", "分析と改善: 満月に向けたラストスパート"
+    elif phase_idx == 4:
+        name, advice = "満月 (Full Moon)", "達成と最大化: 最も困難なタスクの完了"
+    elif phase_idx == 5:
+        name, advice = "十六夜 (Waning Gibbous)", "共有と感謝: 成果のアウトプット"
+    elif phase_idx == 6:
+        name, advice = "下弦 (Last Quarter)", "整理と内省: 不要なタスクの棚卸し"
+    elif phase_idx == 7:
+        name, advice = "二十六夜 (Waning Crescent)", "休息と準備: 次のサイクルへの回復"
+    
+    return {"index": phase_idx, "name": name, "advice": advice}
+
+def js_speak(text):
+    safe_text = text.replace('"', '\\"')
+    return f"""
+    try {{
+        var msg = new SpeechSynthesisUtterance("{safe_text}");
+        msg.lang = 'ja-JP';
+        window.speechSynthesis.speak(msg);
+    }} catch(e) {{ console.log(e); }}
+    """
+
+class GlowingText(ft.Text):
+    def __init__(self, text, size=16, color=COLOR_TEXT_MAIN, glow=True, **kwargs):
+        super().__init__(**kwargs)
+        self.value = text
+        self.size = size
+        self.color = color
+        self.font_family = "Serif"
+        if glow:
+            self.style = ft.TextStyle(
+                shadow=ft.BoxShadow(spread_radius=2, blur_radius=10, color=ft.Colors.with_opacity(0.4, color), offset=ft.Offset(0, 0))
+            )
+
+class StarFirework:
+    def __init__(self, page):
+        self.page = page
+
+    async def explode(self):
+        stars = []
+        for _ in range(30):
+            color = random.choice([ft.Colors.YELLOW, ft.Colors.CYAN, ft.Colors.PURPLE, ft.Colors.WHITE])
+            left = random.randint(50, int(self.page.window.width or 800) - 50)
+            top = random.randint(100, int(self.page.window.height or 600) - 100)
+            size = random.randint(10, 25)
+            
+            star = ft.Icon(ft.Icons.STAR, color=color, size=0, opacity=1.0)
+            container = ft.Container(
+                content=star, 
+                left=left, top=top, 
+                animate=ft.Animation(1000, ft.AnimationCurve.EASE_OUT_EXPO),
+                animate_opacity=ft.Animation(1000, ft.AnimationCurve.EASE_IN)
+            )
+            stars.append((container, star, size))
+
+        stack = ft.Stack([s[0] for s in stars], expand=True)
+        self.page.overlay.append(stack)
+        self.page.update()
+        
+        await asyncio.sleep(0.1)
+        for container, star, final_size in stars:
+            star.size = final_size
+            container.top -= 50
+            container.opacity = 0
+        self.page.update()
+
+        await asyncio.sleep(1.2)
+        self.page.overlay.remove(stack)
+        self.page.update()
+
+def get_moon_visual(idx):
+    img_filename = f"moon_{idx}.png"
+    full_path = f"assets/{img_filename}"
+    if os.path.exists(full_path):
+        return ft.Image(src=img_filename, width=80, height=80, fit=ft.ImageFit.CONTAIN)
+    else:
+        return ft.Container(
+            content=ft.Icon(ft.Icons.NIGHTLIGHT, size=60, color="#fef08a"),
+            width=80, height=80,
+            alignment=ft.alignment.center,
+            shadow=ft.BoxShadow(spread_radius=5, blur_radius=20, color=ft.Colors.with_opacity(0.2, "#fef08a"))
+        )
+
+# ==========================================
+# 4. メイン処理
+# ==========================================
+async def main(page: ft.Page):
+    page.title = "Moon Tasker"
+    page.theme_mode = ft.ThemeMode.DARK
+    page.bgcolor = COLOR_BG
+    page.padding = 20
+    page.scroll = ft.ScrollMode.AUTO
+
+    # 状態管理
+    state = {"is_running": False, "total_score": db.get_total_score()}
+    my_tasks = []
+    moon_info = get_moon_phase_info()
+    firework = StarFirework(page)
+
+    # ---------------------------------------------
+    # 1. UIパーツの事前定義 (これが最重要)
+    # これにより "Undefined name" エラーを防ぎます
+    # ---------------------------------------------
+    
+    # ヘッダーパーツ
+    score_display = GlowingText(f"{state['total_score']} Pt", size=20, color=COLOR_ACCENT)
+    collection_btn = ft.IconButton(icon=ft.Icons.AUTO_STORIES, tooltip="星座図鑑", icon_color=COLOR_ACCENT)
+    
+    header_right_col = ft.Column(
+        [
+            ft.Row([collection_btn, ft.Text("Star Fragments", size=10, color=ft.Colors.GREY_500)], alignment=ft.MainAxisAlignment.END),
+            score_display
+        ], 
+        horizontal_alignment=ft.CrossAxisAlignment.END
+    )
+
+    moon_visual = get_moon_visual(moon_info["index"])
+    header = ft.Row([
+        ft.Row([
+            moon_visual,
+            ft.Column([
+                GlowingText(moon_info["name"], size=20, weight=ft.FontWeight.BOLD),
+                ft.Text(moon_info["advice"], size=12, color=ft.Colors.GREY_400),
+            ], spacing=2)
+        ]),
+        header_right_col
+    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+
+    # 入力フォームパーツ
+    name_input = ft.TextField(label="タスク名", bgcolor=COLOR_CARD, border_color=COLOR_ACCENT, color="white", expand=True, border_radius=10)
+    time_input = ft.TextField(label="分", value="25", width=70, text_align=ft.TextAlign.RIGHT, bgcolor=COLOR_CARD, border_color=COLOR_ACCENT, color="white", border_radius=10, keyboard_type=ft.KeyboardType.NUMBER)
+    goal_checkbox = ft.Checkbox(label="目標に関連", value=False, visible=False, fill_color=COLOR_ACCENT)
+    
+    # ボタンの定義（イベントは後で紐づけ）
+    add_btn = ft.IconButton(ft.Icons.ADD_CIRCLE, icon_color=COLOR_ACCENT, icon_size=40)
+    start_btn = ft.ElevatedButton("Start Journey", icon=ft.Icons.ROCKET_LAUNCH, style=ft.ButtonStyle(bgcolor=COLOR_ACCENT, color="black"), width=300, height=50)
+
+    diff_dropdown = ft.Dropdown(
+        options=[ft.dropdown.Option(k) for k in DIFFICULTY_MAP.keys()],
+        value="Normal", label="難易度", width=100, bgcolor=COLOR_CARD, border_color=COLOR_ACCENT, color="white", border_radius=10
+    )
+    
+    cat_dropdown = ft.Dropdown(
+        options=[ft.dropdown.Option(k, text=v["label"]) for k, v in CATEGORIES.items()],
+        value="Work", label="カテゴリ", width=100, bgcolor=COLOR_CARD, border_color=COLOR_ACCENT, color="white", border_radius=10
+    )
+
+    # タイマー・リストパーツ
+    tasks_view = ft.ListView(expand=True, spacing=10, padding=0)
+    timer_text = GlowingText("00:00", size=70, color=COLOR_ACCENT, visible=False)
+    current_task_text = GlowingText("", size=22, visible=False)
+    status_msg = ft.Text("", color=ft.Colors.GREY_400, visible=False)
+    menu_btn = ft.IconButton(icon=ft.Icons.MORE_VERT, icon_color="white", icon_size=30, visible=False, tooltip="メニュー")
+    
+    gauge_image = ft.Image(src="moon_0.png", width=200, height=200, visible=False, gapless_playback=True)
+    gauge_placeholder = ft.Icon(ft.Icons.CIRCLE, size=200, color=ft.Colors.with_opacity(0.1, "white"), visible=False)
+
+    # サイクルUI
+    cycle_section = ft.Container(padding=10)
+    
+    # 日付ピッカー
+    selected_date_text = ft.Text("未設定", color=ft.Colors.GREY_400)
+    date_picker = ft.DatePicker(first_date=datetime.datetime.now())
+    page.overlay.append(date_picker)
+
+    # ダイアログ入力欄
+    new_action_text = ft.TextField(label="具体的なアクション", autofocus=True)
+    nm_theme = ft.TextField(label="目標 (例: アプリ完成)", border_color=COLOR_ACCENT)
+    nm_cat = ft.Dropdown(options=[ft.dropdown.Option(k, text=v["label"]) for k, v in CATEGORIES.items()], label="メインカテゴリ", border_color=COLOR_ACCENT)
+    review_comment = ft.TextField(label="振り返りコメント", multiline=True, min_lines=3, bgcolor=COLOR_CARD, border_color=COLOR_ACCENT)
+
+    # 図鑑UI
+    collection_view = ft.GridView(height=500, runs_count=2, max_extent=160, child_aspect_ratio=0.8, spacing=10, run_spacing=10)
+    collection_container = ft.Column([collection_view], expand=True, visible=False)
+    close_collection_btn = ft.ElevatedButton("Close Collection", icon=ft.Icons.CLOSE, bgcolor=ft.Colors.GREY_800, color="white")
+
+    # ------------------------------------
+    # ロジック実装
+    # ------------------------------------
+
+    async def speak(text):
+        try:
+            getattr(page, "run_js")(js_speak(text))
+        except Exception:
+            pass
+        await asyncio.sleep(1)
+
+    # バッジ判定
+    async def check_badges(task_category, difficulty):
+        new_badges = []
+        if task_category == "Study" and db.get_category_count("Study") >= 5:
+            if db.award_badge("Lyra"):
+                new_badges.append("Lyra")
+        if task_category == "Work" and db.get_category_count("Work") >= 5:
+            if db.award_badge("Capricorn"):
+                new_badges.append("Capricorn")
+        if task_category == "Chores" and db.get_category_count("Chores") >= 5:
+            if db.award_badge("Virgo"):
+                new_badges.append("Virgo")
+        if task_category == "Creative" and db.get_category_count("Creative") >= 5:
+            if db.award_badge("Pisces"):
+                new_badges.append("Pisces")
+        if difficulty == "Hard":
+            if db.award_badge("Orion"):
+                new_badges.append("Orion")
+        if db.get_total_score() >= 1000:
+            if db.award_badge("Polaris"):
+                new_badges.append("Polaris")
+
+        if new_badges:
+            for code in new_badges:
+                b_data = BADGE_DATA.get(code, {})
+                snack = ft.SnackBar(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.AUTO_AWESOME, color="yellow"),
+                        ft.Text(f"称号獲得: {b_data.get('name')}\n{b_data.get('msg')}", color="white")
+                    ]), 
+                    bgcolor="#334155"
+                )
+                page.open(snack)
+                await speak(f"おめでとうございます。{b_data.get('name')}を獲得しました")
+            page.update()
+            await firework.explode()
+
+    # イベントハンドラ
+    def difficulty_changed(e):
+        if diff_dropdown.value in DIFFICULTY_MAP:
+            time_input.value = str(DIFFICULTY_MAP[diff_dropdown.value]["min"])
+            time_input.update()
+    diff_dropdown.on_change = difficulty_changed
+
+    def update_date_label(e):
+        if date_picker.value:
+            selected_date_text.value = date_picker.value.strftime("%Y-%m-%d")
+            selected_date_text.update()
+    date_picker.on_change = update_date_label
+
+    def copy_action_to_input(text):
+        name_input.value = text
+        name_input.update()
+        page.open(ft.SnackBar(ft.Text("タスク欄にコピーしました"), bgcolor=COLOR_ACCENT))
+
+    # --- ダイアログ定義 ---
+    
+    # 1. アクション追加
+    def add_action_submit(e):
+        cycle = db.get_active_cycle()
+        if cycle and new_action_text.value:
+            db.add_action(cycle['id'], new_action_text.value)
+            new_action_text.value = ""
+            page.close(add_action_dlg)
+            update_cycle_view()
+            
+    add_action_dlg = ft.AlertDialog(
+        title=ft.Text("アクションを追加"),
+        content=new_action_text,
+        actions=[
+            ft.TextButton("キャンセル", on_click=lambda e: page.close(add_action_dlg)),
+            ft.ElevatedButton("追加", on_click=add_action_submit, bgcolor=COLOR_ACCENT, color="black")
+        ],
+        bgcolor=COLOR_CARD
+    )
+
+    # 2. 新月設定
+    def start_new_moon(e):
+        if not nm_theme.value or not nm_cat.value or not date_picker.value:
+            return
+        deadline_str = date_picker.value.strftime("%Y-%m-%d")
+        db.start_cycle(nm_theme.value, nm_cat.value, deadline_str)
+        page.close(new_moon_dlg)
+        update_cycle_view()
+        page.open(ft.SnackBar(ft.Text("新月の誓いが記録されました"), bgcolor=COLOR_ACCENT))
+        page.update()
+
+    new_moon_dlg = ft.AlertDialog(
+        title=ft.Text("🌑 新月の誓い"),
+        content=ft.Column([
+            ft.Text("このサイクルで成し遂げたいことを言語化しましょう。"), 
+            nm_theme, nm_cat,
+            ft.Text("期限設定:", size=12, color=ft.Colors.GREY_400),
+            ft.Row([
+                # 行の最後に # type: ignore をつけるとエラーが消えます
+                ft.ElevatedButton("日付を選択", icon=ft.Icons.CALENDAR_MONTH, on_click=lambda _: date_picker.pick_date()), # type: ignore
+                selected_date_text
+            ])
+            
+        ], tight=True),
+        actions=[
+            ft.TextButton("キャンセル", on_click=lambda e: page.close(new_moon_dlg)),
+            ft.ElevatedButton("誓いを立てる", on_click=start_new_moon, bgcolor=COLOR_ACCENT, color="black")
+        ],
+        bgcolor=COLOR_CARD
+    )
+
+    def open_new_moon_dlg(e):
+        nm_theme.value = ""
+        nm_cat.value = "Work"
+        selected_date_text.value = "未設定"
+        date_picker.value = None
+        page.open(new_moon_dlg)
+
+    # 3. 振り返り
+    selected_stars_value = [0]
+    star_buttons = []
+
+    def set_stars(score):
+        selected_stars_value[0] = score
+        for i, btn in enumerate(star_buttons):
+            if i < score:
+                btn.icon = ft.Icons.STAR
+                btn.icon_color = "yellow"
+            else:
+                btn.icon = ft.Icons.STAR_BORDER
+                btn.icon_color = "grey"
+            btn.update()
+
+    for i in range(1, 6):
+        btn = ft.IconButton(ft.Icons.STAR_BORDER, icon_color="grey", on_click=lambda e, s=i: set_stars(s))
+        star_buttons.append(btn)
+    star_row = ft.Row(controls=star_buttons)
+
+    def submit_review(e):
+        cycle = db.get_active_cycle()
+        if cycle:
+            db.complete_cycle(cycle['id'], selected_stars_value[0], review_comment.value)
+            page.close(finish_cycle_dlg)
+            page.open(ft.SnackBar(ft.Text("サイクル完了。お疲れ様でした。"), bgcolor=COLOR_ACCENT))
+            update_cycle_view()
+
+    finish_cycle_dlg = ft.AlertDialog(
+        title=ft.Text("🌖 十六夜の振り返り"),
+        content=ft.Column([
+            ft.Text("今回のサイクルはいかがでしたか？", size=14),
+            ft.Text("評価:", weight=ft.FontWeight.BOLD, color=COLOR_ACCENT),
+            star_row,
+            review_comment
+        ], tight=True),
+        actions=[
+            ft.ElevatedButton("記録して完了", on_click=submit_review, bgcolor=COLOR_ACCENT, color="black")
+        ],
+        bgcolor=COLOR_CARD
+    )
+
+    def trigger_review(finish_type):
+        cycle = db.get_active_cycle()
+        if cycle:
+            db.move_to_review(cycle['id'], finish_type)
+            # 修正: bottom_sheet ではなく open/close 管理
+            if settings_bs in page.overlay:
+                page.close(settings_bs)
+            update_cycle_view()
+
+    # 設定メニュー (BottomSheet)
+    settings_bs = ft.BottomSheet(
+        ft.Container(
+            ft.Column(
+                [
+                    ft.Text("目標設定メニュー", size=16, weight=ft.FontWeight.BOLD, color=COLOR_ACCENT),
+                    ft.ListTile(leading=ft.Icon(ft.Icons.CHECK_CIRCLE, color="green"), title=ft.Text("早期達成 (Completed)"), subtitle=ft.Text("予定より早く完了しました"), on_click=lambda e: trigger_review("early")),
+                    ft.ListTile(leading=ft.Icon(ft.Icons.REMOVE_CIRCLE, color="red"), title=ft.Text("断念・破棄 (Dropped)"), subtitle=ft.Text("この目標を取り下げます"), on_click=lambda e: trigger_review("dropped")),
+                    ft.ListTile(leading=ft.Icon(ft.Icons.CLOSE), title=ft.Text("閉じる"), on_click=lambda e: page.close(settings_bs))
+                ], tight=True
+            ), padding=20, bgcolor=COLOR_CARD
+        )
+    )
+
+    def open_settings_menu(e):
+        page.open(settings_bs)
+
+    # --- サイクル管理・表示ロジック ---
+    def update_cycle_view():
+        cycle = db.get_active_cycle()
+        cycle_section.content = None
+        
+        if cycle:
+            # 期限チェック
+            today = datetime.date.today()
+            deadline_date = datetime.date.fromisoformat(cycle['deadline'])
+            days_left = (deadline_date - today).days
+
+            if cycle['status'] == 'active' and days_left < 0:
+                db.move_to_review(cycle['id'], "expired")
+                cycle['status'] = 'review'
+
+            if cycle['status'] == 'review':
+                goal_checkbox.visible = False
+                
+                def open_review_dlg(e):
+                    set_stars(0)
+                    review_comment.value = ""
+                    page.open(finish_cycle_dlg)
+
+                cycle_section.content = ft.Container(
+                    content=ft.Column([
+                        ft.Text("🌖 十六夜 (Review Phase)", color="yellow", weight=ft.FontWeight.BOLD),
+                        ft.Text(f"目標「{cycle['theme']}」の期間が終了しました。", size=14),
+                        ft.Text("このサイクルの成果と反省を記録しましょう。", size=12, color=ft.Colors.GREY_400),
+                        ft.ElevatedButton("振り返りを入力する", icon=ft.Icons.RATE_REVIEW, bgcolor=COLOR_ACCENT, color="black", on_click=open_review_dlg)
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
+                    bgcolor="#1e293b", border=ft.border.all(1, "yellow"),
+                    border_radius=10, padding=20
+                )
+
+            elif cycle['status'] == 'active':
+                goal_checkbox.visible = True
+                # 修正: f を削除しました
+                goal_checkbox.label = "目標に関連"
+                
+                days_color = "white"
+                if days_left <= 3:
+                    days_color = "red"
+                elif days_left <= 7:
+                    days_color = "orange"
+
+                actions = db.get_actions(cycle['id'])
+                action_controls = []
+                for act in actions:
+                    def make_check_handler(aid):
+                        return lambda e: db.toggle_action(aid, e.control.value)
+                    
+                    def make_copy_handler(txt):
+                        return lambda e: copy_action_to_input(txt)
+                        
+                    def make_delete_handler(aid):
+                        return lambda e: [db.delete_action(aid), update_cycle_view()]
+
+                    row = ft.Row([
+                        ft.Checkbox(value=act['is_completed'], on_change=make_check_handler(act['id']), fill_color=COLOR_ACCENT),
+                        ft.Text(act['content'], expand=True, size=14),
+                        ft.IconButton(ft.Icons.NORTH_WEST, icon_color=COLOR_ACCENT, tooltip="タスク欄へコピー", on_click=make_copy_handler(act['content']), icon_size=16),
+                        ft.IconButton(ft.Icons.DELETE_OUTLINE, icon_color=ft.Colors.GREY_500, tooltip="削除", on_click=make_delete_handler(act['id']), icon_size=16)
+                    ], alignment=ft.MainAxisAlignment.START)
+                    action_controls.append(row)
+
+                if not action_controls: 
+                    action_view = ft.Text("具体的なアクションを登録しましょう", size=12, color=ft.Colors.GREY_500)
+                else: 
+                    action_view = ft.Column(action_controls, spacing=5)
+
+                card_content = ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.NIGHTLIGHT_ROUND, color="yellow", size=24),
+                        ft.Column([
+                            ft.Text(f"残り {days_left} 日", size=12, color=days_color, weight=ft.FontWeight.BOLD),
+                            ft.Text(cycle['theme'], size=16, weight=ft.FontWeight.BOLD),
+                        ], expand=True),
+                        ft.IconButton(ft.Icons.SETTINGS, icon_color=ft.Colors.GREY_500, tooltip="設定・完了", on_click=lambda e: open_settings_menu(e))
+                    ]),
+                    ft.Divider(color=ft.Colors.GREY_800, height=10),
+                    ft.Text("🌙 ACTIONS", size=10, color=ft.Colors.GREY_400),
+                    action_view,
+                    ft.Container(ft.TextButton("+ アクションを追加", icon=ft.Icons.ADD, on_click=lambda e: page.open(add_action_dlg), style=ft.ButtonStyle(color=COLOR_ACCENT)), alignment=ft.alignment.center_right)
+                ])
+                cycle_section.content = ft.Container(content=card_content, bgcolor="#1e293b", border=ft.border.all(1, "yellow"), border_radius=10, padding=15, shadow=ft.BoxShadow(spread_radius=1, blur_radius=10, color=ft.Colors.with_opacity(0.1, "yellow")))
+        
+        else:
+            goal_checkbox.visible = False
+            goal_checkbox.value = False
+            btn = ft.ElevatedButton("新月の誓いを立てる", icon=ft.Icons.EDIT, style=ft.ButtonStyle(bgcolor=ft.Colors.TRANSPARENT, color=COLOR_TEXT_MAIN, side=ft.BorderSide(1, COLOR_ACCENT)), on_click=lambda e: open_new_moon_dlg(e), width=300)
+            cycle_section.content = ft.Column([ft.Text("長期的なリズムを始めませんか？", size=12, color=ft.Colors.GREY_500), btn], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10)
+        
+        page.update()
+
+    # --- タスク操作 ---
+    def add_task(e):
+        if not name_input.value or not time_input.value:
+            return
+        try:
+            mins = float(time_input.value)
+        except ValueError:
+            return
+        
+        # チェックボックスの値を取得（Noneの場合はFalse扱いにする）
+        is_goal = goal_checkbox.value if goal_checkbox.value is not None else False
+
+        my_tasks.append({
+            "name": name_input.value,
+            "category": cat_dropdown.value,
+            "difficulty": diff_dropdown.value,
+            "minutes": mins,
+            "is_goal": is_goal
+        })
+        
+        # チェックを外す処理
+        if goal_checkbox.visible:
+            goal_checkbox.value = False # type: ignore
+            goal_checkbox.update()
+            
+        name_input.value = ""
+        refresh_list()
+        page.update()
+
+    # ここでボタンにイベントを紐づけ
+    add_btn.on_click = add_task
+
+    def refresh_list():
+        tasks_view.controls.clear()
+        for task in my_tasks:
+            cat_key = task['category']
+            c = CATEGORIES.get(cat_key, {})
+            d = task['difficulty']
+            goal_mark = "★ " if task.get('is_goal') else ""
+            card = ft.Container(
+                content=ft.Row([
+                    ft.Icon(c.get("icon", ft.Icons.CIRCLE), color=COLOR_ACCENT, size=20),
+                    ft.Column([
+                        ft.Text(goal_mark + task["name"], weight=ft.FontWeight.BOLD, color="white"),
+                        ft.Text(f"{c.get('label')} | {d} | {task['minutes']} min", size=12, color=ft.Colors.GREY_500)
+                    ], expand=True),
+                    ft.IconButton(ft.Icons.CLOSE, icon_color="red", data=task, on_click=delete_task)
+                ]),
+                bgcolor=COLOR_CARD, padding=15, border_radius=10, border=ft.border.all(1, ft.Colors.with_opacity(0.1, "white"))
+            )
+            tasks_view.controls.append(card)
+        page.update()
+
+    def delete_task(e):
+        if e.control.data in my_tasks:
+            my_tasks.remove(e.control.data)
+        refresh_list()
+
+    def reset_view():
+        state["is_running"] = False
+        input_col.visible = True
+        tasks_view.visible = True
+        start_btn.visible = True
+        cycle_section.visible = True
+        collection_btn.visible = True
+        collection_btn.update()
+        
+        timer_text.visible = False
+        current_task_text.visible = False
+        status_msg.visible = False
+        menu_btn.visible = False
+        gauge_image.visible = False
+        gauge_placeholder.visible = False
+        try:
+            header_right_col.controls.remove(menu_btn)
+        except Exception:
+            pass
+        page.update()
+
+    async def run_playlist(e):
+        if not my_tasks:
+            return
+        state["is_running"] = True
+        
+        timer_text.value = "00:00"
+        current_task_text.value = "Ready..."
+        status_msg.value = "Initializing..."
+        
+        if os.path.exists("assets/moon_0.png"):
+            gauge_image.src = "moon_0.png"
+            gauge_image.visible = True
+            gauge_placeholder.visible = False
+        else:
+            gauge_image.visible = False
+            gauge_placeholder.visible = True
+        gauge_image.update()
+
+        input_col.visible = False
+        tasks_view.visible = False
+        start_btn.visible = False
+        cycle_section.visible = False
+        collection_btn.visible = False
+        collection_btn.update()
+        
+        timer_text.visible = True
+        current_task_text.visible = True
+        status_msg.visible = True
+        menu_btn.visible = True
+        header_right_col.controls.append(menu_btn)
+        page.update()
+
+        for task in my_tasks:
+            if not state["is_running"]:
+                break
+            
+            name = task["name"]
+            mins = task["minutes"]
+            total_sec = int(mins * 60)
+            
+            current_task_text.value = name
+            status_msg.value = "Focusing under the moonlight..."
+            current_task_text.update()
+            status_msg.update()
+            
+            await speak(f"{name}、開始")
+
+            for k in range(total_sec, -1, -1):
+                if not state["is_running"]:
+                    break
+                
+                m, s = divmod(k, 60)
+                timer_text.value = f"{m:02}:{s:02}"
+                progress = (total_sec - k) / total_sec if total_sec > 0 else 1.0
+                moon_idx = int(progress * 4)
+                if moon_idx > 4:
+                    moon_idx = 4
+                
+                if gauge_image.visible:
+                    new_src = f"moon_{moon_idx}.png"
+                    if gauge_image.src != new_src:
+                        gauge_image.src = new_src
+                        gauge_image.update()
+                
+                timer_text.update()
+                await asyncio.sleep(1)
+
+            if state["is_running"]:
+                pts = DIFFICULTY_MAP.get(task["difficulty"], {"points":10})["points"]
+                db.add_score(pts)
+                db.log_task(name, task['category'], task['difficulty'], pts, task.get('is_goal', False))
+                state["total_score"] = db.get_total_score()
+                score_display.value = f"{state['total_score']} Pt"
+                score_display.update()
+                
+                if gauge_image.visible:
+                    gauge_image.src = "moon_4.png"
+                    gauge_image.update()
+                
+                await speak(f"完了。{pts}ポイント獲得")
+                await check_badges(task['category'], task['difficulty'])
+                await asyncio.sleep(1.5)
+
+        if state["is_running"]:
+            status_msg.value = "All Tasks Completed"
+            status_msg.update()
+            await speak("全タスク終了。")
+            await asyncio.sleep(3)
+            reset_view()
+
+    # タイマー実行イベント
+    start_btn.on_click = run_playlist
+
+    # --- 中断・警告 ---
+    def close_dlg(e):
+        page.close(dlg)
+
+    def confirm_abort_phase1(e):
+        # 修正: .value への代入ではなく、ft.Text 自体を新しく代入する
+        dlg.title = ft.Text("最終確認") 
+        
+        dlg.content = ft.Text("本当に中断しますか？\nここで止めると、積み上げた集中が途切れてしまいます。\nあと少しだけ頑張りませんか？")
+        dlg.actions.clear()
+        dlg.actions.extend([
+            ft.TextButton("思いとどまる", on_click=close_dlg, style=ft.ButtonStyle(color=ft.Colors.GREEN)),
+            ft.TextButton("それでも中断", on_click=confirm_abort_final, style=ft.ButtonStyle(color=ft.Colors.RED))
+        ])
+        dlg.update()
+
+    def confirm_abort_final(e):
+        state["is_running"] = False
+        page.close(dlg)
+        reset_view()
+        
+        # 修正: ここも同様に ft.Text を新しく代入する
+        dlg.title = ft.Text("中断の確認")
+        
+        dlg.content = ft.Text("現在の作業を中断しますか？")
+        dlg.actions.clear()
+        dlg.actions.extend([
+            ft.TextButton("いいえ", on_click=close_dlg),
+            ft.TextButton("中断する", on_click=confirm_abort_phase1, style=ft.ButtonStyle(color="red"))
+        ])
+        # 注意: ここで dlg.update() は不要です（page.closeしているため次回表示時に反映される、またはopen時に再構築されるため）
+
+    dlg = ft.AlertDialog(
+        title=ft.Text("中断の確認"),
+        content=ft.Text("現在の作業を中断しますか？"),
+        actions=[
+            ft.TextButton("いいえ", on_click=close_dlg),
+            ft.TextButton("中断する", on_click=confirm_abort_phase1, style=ft.ButtonStyle(color="red"))
+        ]
+    )
+    menu_btn.on_click = lambda e: page.open(dlg)
+
+    # --- 図鑑表示 ---
+    def show_badge_detail(code):
+        data = BADGE_DATA[code]
+        has_badge = db.has_badge(code)
+        
+        if has_badge:
+            dlg_title = data["name"]
+            dlg_content = ft.Column([
+                ft.Image(src=data["icon"], width=100, height=100, fit=ft.ImageFit.CONTAIN),
+                ft.Text(data["msg"], text_align=ft.TextAlign.CENTER, size=16),
+                ft.Container(
+                    content=ft.Text("ACQUIRED", color="black", size=12, weight=ft.FontWeight.BOLD),
+                    bgcolor=COLOR_ACCENT, padding=5, border_radius=5, margin=10
+                )
+            ], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+        else:
+            dlg_title = "???"
+            condition_text = data.get("condition", "条件不明")
+            dlg_content = ft.Column([
+                ft.Icon(ft.Icons.LOCK, size=60, color=ft.Colors.GREY_500),
+                ft.Text("未解放の星座", color=ft.Colors.GREY_400),
+                ft.Divider(color=ft.Colors.GREY_800),
+                ft.Text("【解放条件】", weight=ft.FontWeight.BOLD, color=COLOR_ACCENT),
+                ft.Text(condition_text, text_align=ft.TextAlign.CENTER)
+            ], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+
+        detail_dlg = ft.AlertDialog(
+            title=ft.Text(dlg_title, text_align=ft.TextAlign.CENTER),
+            content=dlg_content,
+            actions=[ft.TextButton("Close", on_click=lambda e: page.close(detail_dlg))],
+            actions_alignment=ft.MainAxisAlignment.CENTER,
+            bgcolor=COLOR_CARD
+        )
+        page.open(detail_dlg)
+
+    def update_collection():
+        collection_view.controls.clear()
+        for code, data in BADGE_DATA.items():
+            has_badge = db.has_badge(code)
+            if has_badge:
+                icon_content = ft.Image(src=data["icon"], width=60, height=60, fit=ft.ImageFit.CONTAIN, color_blend_mode=ft.BlendMode.DST)
+                title_text, desc_text = data["name"], "Tap for detail"
+                opacity, bg_col, bd_col = 1.0, COLOR_CARD, COLOR_ACCENT
+            else:
+                icon_content = ft.Icon(ft.Icons.LOCK, size=40, color=ft.Colors.GREY_400)
+                title_text, desc_text = "???", "Tap for hint"
+                opacity, bg_col, bd_col = 0.5, "#0f172a", ft.Colors.GREY_800
+            
+            item = ft.Container(
+                content=ft.Column([
+                    ft.Container(content=icon_content, height=60, alignment=ft.alignment.center),
+                    ft.Text(title_text, size=14, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                    ft.Text(desc_text, size=10, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER),
+                ], alignment=ft.MainAxisAlignment.CENTER, spacing=5),
+                bgcolor=bg_col, border=ft.border.all(1, bd_col),
+                border_radius=10, padding=10, opacity=opacity,
+                on_click=lambda e, c=code: show_badge_detail(c)
+            )
+            collection_view.controls.append(item)
+        collection_view.update()
+
+    def toggle_collection(show):
+        if show:
+            update_collection()
+            input_col.visible = False
+            tasks_view.visible = False
+            start_btn.visible = False
+            cycle_section.visible = False
+            collection_container.visible = True
+            
+            timer_text.visible = False
+            gauge_image.visible = False
+            gauge_placeholder.visible = False
+            status_msg.visible = False
+        else:
+            input_col.visible = True
+            tasks_view.visible = True
+            start_btn.visible = True
+            cycle_section.visible = True
+            collection_container.visible = False
+            
+            if os.path.exists("assets/moon_0.png"):
+                gauge_image.src = "moon_0.png"
+                gauge_image.visible = False
+                gauge_placeholder.visible = False
+        page.update()
+
+    close_collection_btn.on_click = lambda e: toggle_collection(False)
+    collection_container.controls.append(ft.Container(close_collection_btn, alignment=ft.alignment.center, padding=10))
+    
+    collection_btn.on_click = lambda e: toggle_collection(True)
+
+    # ==========================================
+    # レイアウト組み立て
+    # ==========================================
+    
+    # 2段目: 設定系を1行に統一
+    # 修正: 1行ずつに分けました
+    cat_dropdown.width = None
+    cat_dropdown.expand = True
+    
+    diff_dropdown.width = None
+    diff_dropdown.expand = True
+    
+    settings_row = ft.Row([cat_dropdown, diff_dropdown, time_input], spacing=10)
+    
+    # 3段目: アクション系
+    action_row = ft.Row([goal_checkbox, add_btn], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+    
+    # 入力エリア全体
+    input_col = ft.Column([name_input, settings_row, action_row], spacing=10)
+
+    start_btn = ft.ElevatedButton(
+        "Start Journey", 
+        icon=ft.Icons.ROCKET_LAUNCH, 
+        style=ft.ButtonStyle(bgcolor=COLOR_ACCENT, color="black"), 
+        width=300, height=50, 
+        on_click=run_playlist
+    )
+
+    page.add(
+        ft.Column([
+            header,
+            ft.Divider(color="transparent", height=10),
+            cycle_section,
+            collection_container,
+            ft.Divider(color="transparent", height=10),
+            input_col,
+            ft.Divider(color="transparent", height=10),
+            tasks_view,
+            ft.Container(start_btn, alignment=ft.alignment.center, padding=10),
+            ft.Divider(color="transparent", height=20),
+            current_task_text,
+            ft.Container(content=ft.Stack([gauge_placeholder, gauge_image], alignment=ft.alignment.center), alignment=ft.alignment.center, height=220),
+            timer_text,
+            status_msg
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+    )
+    
+    update_cycle_view()
+
+ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=8080, host="0.0.0.0", assets_dir="assets")

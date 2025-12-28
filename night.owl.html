@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moon Task Manager</title>
+    <style>
+        /* 1. 変数の定義（ここが抜けていました） */
+        :root {
+            --color-background: #0f172a; /* 深い夜空の色 */
+            --color-card-bg: #1e293b;    /* カードの背景 */
+            --color-primary: #e2e8f0;    /* 文字色 */
+            --color-accent-blue: #60a5fa;
+            --color-accent-gold: #fbbf24;
+            --color-input-bg: #334155;
+            --color-border: #475569;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-primary);
+            display: flex;
+            justify-content: center;
+            padding: 50px 20px;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 500px;
+            background: var(--color-card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.5);
+        }
+
+        #score-display {
+            color: var(--color-accent-gold);
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+        }
+
+        #task-input {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 10px; /* 要素間の隙間 */
+        }
+
+        #new-task-text, #task-difficulty {
+            padding: 12px;
+            background: var(--color-input-bg);
+            border: 1px solid var(--color-border);
+            color: var(--color-primary);
+            border-radius: 6px;
+            outline: none;
+        }
+
+        #new-task-text {
+            flex-grow: 1;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: var(--color-accent-blue);
+            color: var(--color-background);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background-color: #93c5fd;
+            transform: translateY(-2px);
+        }
+
+        #todo-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        #todo-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--color-card-bg);
+            border: 1px solid var(--color-border);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .task-content-wrapper {
+            flex-grow: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .task-score {
+            margin-right: 15px;
+            color: var(--color-accent-gold);
+            font-size: 0.9em;
+            min-width: 50px;
+        }
+
+        .delete-btn {
+            background-color: #ef4444;
+            color: white;
+            margin-left: 10px;
+        }
+        .delete-btn:hover {
+            background-color: #f87171;
+        }
+
+        .completed {
+            opacity: 0.5;
+            background-color: #0f172a; /* 完了したら少し暗く */
+        }
+        .completed .task-text {
+            text-decoration: line-through;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="score-display">
+            Moon Score: <span id="total-score">0</span> pt
+        </div>
+
+        <div id="task-input">
+            <input type="text" id="new-task-text" placeholder="新しいタスクを入力..." />
+            <select id="task-difficulty">
+                <option value="1">⭐ Easy</option>
+                <option value="2">⭐⭐ Medium</option>
+                <option value="3">⭐⭐⭐ Hard</option>
+            </select>
+            <button id="add-task-btn">追加</button>
+        </div>
+
+        <ul id="todo-list">
+            </ul>
+    </div>
+
+    <script>
+        // 2. 変数の初期化（ここが抜けていました）
+        let totalScore = 0;
+        const baseScore = 10;
+        const scoreMultipliers = {
+            "1": 1,   // Easy: 10pt
+            "2": 2,   // Medium: 20pt
+            "3": 3    // Hard: 30pt
+        };
+
+        // DOM要素の取得
+        const taskInput = document.getElementById('new-task-text');
+        const difficultySelect = document.getElementById('task-difficulty');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const todoList = document.getElementById('todo-list');
+
+        // スコア表示を更新
+        function updateScoreDisplay() {
+            const scoreElement = document.getElementById('total-score');
+            scoreElement.textContent = Math.round(totalScore);
+            
+            // アニメーション効果（点滅）
+            scoreElement.style.color = '#fff';
+            setTimeout(() => {
+                scoreElement.style.color = 'var(--color-accent-gold)';
+            }, 200);
+        }
+
+        // タスク追加機能
+        function addTask() {
+            const taskText = taskInput.value.trim();
+            const difficulty = difficultySelect.value;
+
+            if (taskText === "") return;
+
+            const score = baseScore * scoreMultipliers[difficulty];
+            const listItem = document.createElement('li');
+
+            // クリック領域を広げるためのラッパー
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'task-content-wrapper';
+
+            // 星マークの生成
+            const stars = '⭐'.repeat(parseInt(difficulty));
+            
+            // スコア表示
+            const scoreSpan = document.createElement('span');
+            scoreSpan.className = 'task-score';
+            // 3. バッククォート修正（`）
+            scoreSpan.textContent = `+${score}pt`; 
+            scoreSpan.setAttribute('data-score', score);
+
+            // テキスト部分
+            const textSpan = document.createElement('span');
+            textSpan.className = 'task-text';
+            textSpan.textContent = `[${stars}] ${taskText}`;
+
+            // ラッパーに追加
+            contentWrapper.appendChild(scoreSpan);
+            contentWrapper.appendChild(textSpan);
+
+            // 削除ボタン
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = '削除';
+            deleteBtn.className = 'delete-btn';
+            
+            // 削除ロジック
+            deleteBtn.onclick = function(e) {
+                // 親要素へのイベント伝播を止める（完了扱いになるのを防ぐ）
+                e.stopPropagation();
+                
+                // もし完了済みのタスクを削除するなら、スコアを減算して戻す必要があるか？
+                // 通常は「完了した実績」は残したいが、今回は単純化のため
+                // 「完了状態」で削除したらスコアも没収するロジックにします
+                if (listItem.classList.contains('completed')) {
+                    totalScore -= score;
+                    updateScoreDisplay();
+                }
+                listItem.remove();
+            };
+
+            // タスク完了（クリック）のロジック
+            contentWrapper.onclick = function() {
+                const currentScore = parseFloat(scoreSpan.getAttribute('data-score'));
+
+                if (!listItem.classList.contains('completed')) {
+                    // 完了処理
+                    listItem.classList.add('completed');
+                    totalScore += currentScore;
+                    scoreSpan.textContent = 'GET!'; 
+                } else {
+                    // 未完了に戻す処理
+                    listItem.classList.remove('completed');
+                    totalScore -= currentScore;
+                    scoreSpan.textContent = `+${currentScore}pt`;
+                }
+                updateScoreDisplay();
+            };
+
+            listItem.appendChild(contentWrapper);
+            listItem.appendChild(deleteBtn);
+            todoList.appendChild(listItem);
+
+            taskInput.value = '';
+        }
+
+        // イベントリスナー
+        addTaskBtn.addEventListener('click', addTask);
+        taskInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addTask();
+            }
+        });
+
+        updateScoreDisplay();
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

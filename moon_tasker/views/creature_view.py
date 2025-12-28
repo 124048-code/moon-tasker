@@ -231,7 +231,7 @@ class CreatureView(ft.Column):
         if warning:
             warning_card = ft.Container(
                 content=ft.Row([
-                    ft.Icon(name=ft.icons.WARNING_AMBER, color="#f44336", size=30),
+                    ft.Icon(name="warning_amber", color="#f44336", size=30),
                     ft.Text(warning, size=16, color="#f44336", weight=ft.FontWeight.BOLD),
                 ], alignment=ft.MainAxisAlignment.CENTER),
                 bgcolor="#3d1f1f",

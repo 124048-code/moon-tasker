@@ -46,7 +46,7 @@ class LoginView(ft.Column):
         if not self.auth.is_configured:
             warning_card = ft.Container(
                 content=ft.Column([
-                    ft.Icon(ft.icons.WARNING, color="#ff9800", size=40),
+                    ft.Icon("warning", color="#ff9800", size=40),
                     ft.Text("クラウド機能が設定されていません", weight=ft.FontWeight.BOLD),
                     ft.Text("開発者にお問い合わせください", size=12, color="#9e9e9e"),
                     ft.ElevatedButton(

@@ -166,7 +166,7 @@ class TimerView(ft.Column):
         if not has_playlists:
             guide_card = ft.Container(
                 content=ft.Column([
-                    ft.Icon(ft.icons.HELP_OUTLINE, size=40, color="#ffc107"),
+                    ft.Icon("help_outline", size=40, color="#ffc107"),
                     ft.Text("プレイリストがありません", size=18, weight=ft.FontWeight.BOLD),
                     ft.Text("まずプレイリストを作成して、タスクを追加しましょう！", size=14, color="#9e9e9e"),
                     ft.Container(height=10),
