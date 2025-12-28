@@ -717,7 +717,13 @@ class TimerView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER,
         )
         
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        
+        dialog.open = True
+
+        
+        self._page.update()
         self._load_playlists()
         self._page.update()
     
@@ -818,7 +824,13 @@ class TimerView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        
+        dialog.open = True
+
+        
+        self._page.update()
     
     def _show_badge_unlock_animation(self, badges):
         """称号獲得演出ダイアログ"""
@@ -881,7 +893,13 @@ class TimerView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        
+        dialog.open = True
+
+        
+        self._page.update()
     
     def _show_pending_presents(self):
         """保留中のプレゼント演出を表示"""
@@ -952,4 +970,10 @@ class TimerView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        
+        dialog.open = True
+
+        
+        self._page.update()

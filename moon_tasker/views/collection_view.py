@@ -207,7 +207,13 @@ class CollectionView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END
         )
         
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        
+        dialog.open = True
+
+        
+        self._page.update()
     
     def check_and_show_new_badges(self):
         """新しく獲得した称号をチェックして演出表示"""
@@ -279,7 +285,13 @@ class CollectionView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        
+        dialog.open = True
+
+        
+        self._page.update()
     
     async def _show_unlock_animation_async(self, badges):
         """非同期で称号獲得演出を表示"""

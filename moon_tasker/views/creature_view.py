@@ -479,7 +479,13 @@ class CreatureView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END
         )
         
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        
+        dialog.open = True
+
+        
+        self._page.update()
     
     def _show_name_input_dialog(self):
         """名前入力ダイアログを表示"""
@@ -544,7 +550,13 @@ class CreatureView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END
         )
         
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        
+        dialog.open = True
+
+        
+        self._page.update()
     
     def _normalize_text(self, text: str) -> str:
         """テキストを正規化（カタカナ→ひらがな、記号除去、小文字化）"""
@@ -608,4 +620,10 @@ class CreatureView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
         
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        
+        dialog.open = True
+
+        
+        self._page.update()

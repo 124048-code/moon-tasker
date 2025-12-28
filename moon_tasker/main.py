@@ -107,7 +107,11 @@ def main(page: ft.Page):
             ],
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
-        page.open(dialog)
+        page.dialog = dialog
+
+        dialog.open = True
+
+        page.update()
     
     # タイマーからchange_viewにアクセスできるようにpageに保存
     page.change_view = change_view

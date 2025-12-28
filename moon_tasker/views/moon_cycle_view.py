@@ -658,7 +658,11 @@ class MoonCycleView(ft.Column):
             ],
             actions_alignment=ft.MainAxisAlignment.END
         )
-        self._page.open(dialog)
+        self._page.dialog = dialog
+
+        dialog.open = True
+
+        self._page.update()
     
     def _confirm_delete_cycle(self, e):
         """削除確認ダイアログ"""
