@@ -31,7 +31,6 @@ def main(page: ft.Page):
             primary="#7c4dff",
             secondary="#00bcd4",
             surface="#1a1a2e",
-            background="#0f0f1a",
         ),
         font_family="ZenKaku",
     )
