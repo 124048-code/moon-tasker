@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+
+# Environment variables (機密情報)
+.env
+
+# Database
+*.db
+
+# Flet build outputs
+dist/
