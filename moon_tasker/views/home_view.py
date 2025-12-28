@@ -50,7 +50,7 @@ class HomeView(ft.Column):
         quick_start_card = ft.Container(
             content=ft.Column([
                 ft.Row([
-                    ft.Icon(ft.icons.PLAY_CIRCLE_FILL, size=40, color="#4caf50"),
+                    ft.Icon(ft.icons.PLAY_CIRCLE, size=40, color="#4caf50"),
                     ft.Column([
                         ft.Text("今すぐ始める", size=20, weight=ft.FontWeight.BOLD),
                         ft.Text("25分間の集中タイムを開始", size=14, color="#9e9e9e"),
