@@ -21,18 +21,13 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 0  # 背景画像用
     
-    # カスタムテーマ（洗練されたカラーパレット + フォント）
-    page.fonts = {
-        "ZenKaku": "moon_tasker/assets/fonts/ZenKakuGothicNew-Regular.ttf",
-        "ZenKakuMedium": "moon_tasker/assets/fonts/ZenKakuGothicNew-Medium.ttf",
-    }
+    # カスタムテーマ（洗練されたカラーパレット）
     page.theme = ft.Theme(
         color_scheme=ft.ColorScheme(
             primary="#7c4dff",
             secondary="#00bcd4",
             surface="#1a1a2e",
         ),
-        font_family="ZenKaku",
     )
     
     # 背景画像パス
