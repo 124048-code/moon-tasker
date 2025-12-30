@@ -25,8 +25,7 @@ class PlaylistView(ft.Column):
         # UIコンポーネント
         self.playlist_dropdown = ft.Dropdown(
             label="プレイリストを選択",
-            width=250,
-            on_change=self.on_playlist_change
+            width=250
         )
         self.playlist_name_field = ft.TextField(
             label="新規プレイリスト名",

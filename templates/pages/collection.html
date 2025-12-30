@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}星座図鑑 - Moon Tasker{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <h1 class="text-3xl font-bold">星座図鑑 ⭐</h1>
+    <p class="text-gray-400">タスクを達成してバッジを集めよう！</p>
+
+    <!-- 獲得済みバッジ -->
+    <div class="glass rounded-xl p-6">
+        <h2 class="text-xl font-bold mb-4 text-yellow-400">🏆 獲得済みバッジ</h2>
+
+        {% if unlocked_badges|length == 0 %}
+        <p class="text-gray-400">まだバッジを獲得していません</p>
+        {% else %}
+        <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {% for badge in unlocked_badges %}
+            <div class="text-center p-4 bg-yellow-900/30 rounded-xl border border-yellow-500/50">
+                <span class="text-4xl">{{ badge.icon }}</span>
+                <p class="font-bold mt-2 text-sm">{{ badge.name }}</p>
+                <p class="text-gray-400 text-xs mt-1">{{ badge.description[:20] }}...</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 未獲得バッジ -->
+    <div class="glass rounded-xl p-6">
+        <h2 class="text-xl font-bold mb-4 text-gray-400">🔒 未獲得バッジ</h2>
+
+        {% if locked_badges|length == 0 %}
+        <p class="text-success">すべてのバッジを獲得しました！🎉</p>
+        {% else %}
+        <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {% for badge in locked_badges %}
+            <div class="text-center p-4 bg-gray-800/50 rounded-xl border border-gray-600 opacity-60">
+                <span class="text-4xl grayscale">{{ badge.icon }}</span>
+                <p class="font-bold mt-2 text-sm text-gray-400">???</p>
+                <p class="text-gray-500 text-xs mt-1">{{ badge.condition[:20] }}...</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- バッジ統計 -->
+    <div class="glass rounded-xl p-6 text-center">
+        <p class="text-2xl font-bold text-yellow-400">
+            {{ unlocked_badges|length }} / {{ unlocked_badges|length + locked_badges|length }}
+        </p>
+        <p class="text-gray-400">バッジ獲得済み</p>
+
+        <div class="w-full bg-gray-700 rounded-full h-3 mt-4">
+            {% set total = unlocked_badges|length + locked_badges|length %}
+            {% set percent = (unlocked_badges|length / total * 100) if total > 0 else 0 %}
+            <div class="h-3 rounded-full bg-yellow-400 transition-all duration-500" style="width: {{ percent }}%"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Moon Tasker{% endblock %}</title>
+    
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#7c4dff',
+                        secondary: '#00bcd4',
+                        surface: '#1a1a2e',
+                        accent: '#ffc107',
+                        success: '#4caf50',
+                        danger: '#f44336',
+                        warning: '#ff9800',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Custom Styles -->
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f1a2e 100%);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(30, 58, 95, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-item:hover {
+            background: rgba(124, 77, 255, 0.3);
+        }
+        .nav-item.active {
+            background: rgba(124, 77, 255, 0.5);
+            border-left: 3px solid #7c4dff;
+        }
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-request .htmx-indicator {
+            display: inline-block;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(124, 77, 255, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(124, 77, 255, 0.8); }
+        }
+        .timer-active {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+    </style>
+    
+    {% block head %}{% endblock %}
+</head>
+<body class="text-white">
+    <div class="flex min-h-screen">
+        <!-- サイドナビゲーション -->
+        <nav class="w-24 bg-surface/80 backdrop-blur-lg border-r border-white/10 flex flex-col py-4">
+            <div class="text-center mb-6">
+                <span class="text-2xl">🌙</span>
+            </div>
+            
+            <a href="/" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'home' %}active{% endif %}">
+                <span class="text-xl">🏠</span>
+                <span class="text-xs mt-1">ホーム</span>
+            </a>
+            
+            <a href="/timer" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'timer' %}active{% endif %}">
+                <span class="text-xl">⏱️</span>
+                <span class="text-xs mt-1">タイマー</span>
+            </a>
+            
+            <a href="/playlist" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'playlist' %}active{% endif %}">
+                <span class="text-xl">📝</span>
+                <span class="text-xs mt-1">タスク</span>
+            </a>
+            
+            <a href="/moon-cycle" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'moon_cycle' %}active{% endif %}">
+                <span class="text-xl">🌙</span>
+                <span class="text-xs mt-1">月サイクル</span>
+            </a>
+            
+            <a href="/collection" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'collection' %}active{% endif %}">
+                <span class="text-xl">⭐</span>
+                <span class="text-xs mt-1">星座図鑑</span>
+            </a>
+            
+            <a href="/creature" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'creature' %}active{% endif %}">
+                <span class="text-xl">🐾</span>
+                <span class="text-xs mt-1">生命体</span>
+            </a>
+            
+            <a href="/friends" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'friends' %}active{% endif %}">
+                <span class="text-xl">👥</span>
+                <span class="text-xs mt-1">フレンド</span>
+            </a>
+        </nav>
+        
+        <!-- メインコンテンツ -->
+        <main class="flex-1 p-6 overflow-auto">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    
+    <!-- HTMX Loading Indicator -->
+    <div id="global-loader" class="htmx-indicator fixed top-4 right-4 bg-primary/80 px-4 py-2 rounded-lg">
+        <span class="animate-spin inline-block mr-2">⏳</span>
+        Loading...
+    </div>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

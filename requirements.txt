@@ -1,5 +1,10 @@
-# Python依存関係
-flet>=0.21.0
-python-dotenv>=1.0.0
-httpx>=0.27.0
-ephem>=4.1.5
+# Flask Web App
+flask
+gunicorn
+
+# Database & Utils
+python-dotenv
+httpx
+ephem
+
+# Existing dependencies

@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+
+{% block title %}タイマー - Moon Tasker{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <h1 class="text-3xl font-bold">タイマー ⏱️</h1>
+
+    <!-- タイマー表示 -->
+    <div class="glass rounded-xl p-10 text-center" id="timer-card">
+        <p id="progress-text" class="text-blue-400 text-lg mb-2"></p>
+        <p id="timer-display" class="text-8xl font-mono font-bold">00:00</p>
+        <p id="status-text" class="text-gray-400 text-xl mt-4">プレイリストを選択してください</p>
+        <p id="next-task-text" class="text-gray-500 mt-2"></p>
+        <p id="end-time-text" class="text-yellow-400 mt-2"></p>
+    </div>
+
+    <!-- プレイリスト選択 -->
+    <div class="glass rounded-xl p-6" id="playlist-selection">
+        <h2 class="text-lg font-bold mb-4">プレイリスト選択</h2>
+        <p class="text-gray-400 text-sm mb-4">選択したプレイリストのタスクを順番に実行します</p>
+
+        <select id="playlist-dropdown"
+            class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white mb-4" hx-get=""
+            hx-target="#schedule-container" hx-trigger="change">
+            <option value="">プレイリストを選択...</option>
+            {% for playlist in playlists %}
+            <option value="{{ playlist.id }}" hx-get="/timer/playlist/{{ playlist.id }}/tasks">
+                {{ playlist.name }}
+            </option>
+            {% endfor %}
+        </select>
+
+        {% if playlists|length == 0 %}
+        <div class="bg-yellow-900/30 border border-yellow-500 rounded-lg p-4 text-center">
+            <span class="text-3xl">📝</span>
+            <p class="font-bold mt-2">プレイリストがありません</p>
+            <p class="text-gray-400 text-sm">まずプレイリストを作成しましょう！</p>
+            <a href="/playlist"
+                class="inline-block mt-3 bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded-lg">
+                📝 プレイリストを作成する
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- スケジュール表示 -->
+    <div class="glass rounded-xl p-6">
+        <h2 class="text-lg font-bold mb-4">📅 今日のスケジュール</h2>
+        <div id="schedule-container">
+            <p class="text-gray-400">プレイリストを選択すると表示されます</p>
+        </div>
+    </div>
+
+    <!-- コントロールボタン -->
+    <div class="flex justify-center gap-4" id="control-buttons">
+        <button id="start-btn" onclick="startTimer()"
+            class="bg-success hover:bg-success/80 text-white font-bold py-3 px-8 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled>
+            ▶️ 開始
+        </button>
+        <button id="pause-btn" onclick="togglePause()"
+            class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-lg transition-colors hidden">
+            ⏸️ 一時停止
+        </button>
+        <button id="stop-btn" onclick="confirmStop()"
+            class="bg-danger hover:bg-danger/80 text-white font-bold py-3 px-8 rounded-lg transition-colors hidden">
+            ⏹️ 中止
+        </button>
+    </div>
+</div>
+
+<!-- 完了ダイアログ -->
+<div id="complete-dialog" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50">
+    <div class="glass rounded-xl p-8 text-center max-w-md">
+        <p class="text-5xl mb-4">🎉</p>
+        <h2 class="text-2xl font-bold mb-4">達成しました！</h2>
+        <p id="complete-message" class="text-lg mb-6"></p>
+        <button onclick="closeCompleteDialog()"
+            class="bg-success hover:bg-success/80 text-white font-bold py-3 px-8 rounded-lg">
+            🏠 ホームに戻る
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Timer state
+    let timerState = {
+        isRunning: false,
+        isPaused: false,
+        remainingSeconds: 0,
+        currentTaskIndex: 0,
+        tasks: [],
+        isBreak: false,
+        intervalId: null
+    };
+
+    // DOM elements
+    const timerDisplay = document.getElementById('timer-display');
+    const statusText = document.getElementById('status-text');
+    const progressText = document.getElementById('progress-text');
+    const nextTaskText = document.getElementById('next-task-text');
+    const endTimeText = document.getElementById('end-time-text');
+    const timerCard = document.getElementById('timer-card');
+    const playlistDropdown = document.getElementById('playlist-dropdown');
+    const startBtn = document.getElementById('start-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const playlistSelection = document.getElementById('playlist-selection');
+
+    // Playlist selection handler
+    playlistDropdown.addEventListener('change', async function () {
+        const playlistId = this.value;
+        if (!playlistId) {
+            startBtn.disabled = true;
+            return;
+        }
+
+        // Load tasks via HTMX
+        const response = await fetch(`/timer/playlist/${playlistId}/tasks`);
+        const html = await response.text();
+        document.getElementById('schedule-container').innerHTML = html;
+
+        // Parse tasks from hidden data
+        const tasksData = document.getElementById('tasks-data');
+        if (tasksData) {
+            timerState.tasks = JSON.parse(tasksData.textContent);
+            startBtn.disabled = timerState.tasks.length === 0;
+        }
+    });
+
+    function startTimer() {
+        if (timerState.tasks.length === 0) return;
+
+        timerState.isRunning = true;
+        timerState.currentTaskIndex = 0;
+        timerState.isBreak = false;
+
+        // UI updates
+        playlistSelection.classList.add('hidden');
+        startBtn.classList.add('hidden');
+        pauseBtn.classList.remove('hidden');
+        stopBtn.classList.remove('hidden');
+        timerCard.classList.add('timer-active');
+
+        startTask();
+    }
+
+    function startTask() {
+        if (timerState.currentTaskIndex >= timerState.tasks.length) {
+            completePlaylist();
+            return;
+        }
+
+        const task = timerState.tasks[timerState.currentTaskIndex];
+        timerState.remainingSeconds = task.duration * 60;
+        timerState.isBreak = false;
+
+        progressText.textContent = `${timerState.currentTaskIndex + 1} / ${timerState.tasks.length}`;
+        statusText.textContent = `作業中: ${task.title}`;
+
+        const nextTask = timerState.tasks[timerState.currentTaskIndex + 1];
+        nextTaskText.textContent = nextTask ? `次: ${nextTask.title}` : '🎯 最後のタスクです！';
+
+        updateTimerDisplay();
+        timerState.intervalId = setInterval(tick, 1000);
+    }
+
+    function startBreak() {
+        const task = timerState.tasks[timerState.currentTaskIndex];
+        timerState.remainingSeconds = task.break_duration * 60;
+        timerState.isBreak = true;
+
+        statusText.textContent = `休憩中 ☕ (${task.break_duration}分)`;
+
+        updateTimerDisplay();
+        timerState.intervalId = setInterval(tick, 1000);
+    }
+
+    function tick() {
+        if (!timerState.isRunning || timerState.isPaused) return;
+
+        timerState.remainingSeconds--;
+        updateTimerDisplay();
+
+        if (timerState.remainingSeconds <= 0) {
+            clearInterval(timerState.intervalId);
+
+            if (timerState.isBreak) {
+                // Break done, move to next task
+                timerState.currentTaskIndex++;
+                startTask();
+            } else {
+                // Task done, report completion and start break
+                const task = timerState.tasks[timerState.currentTaskIndex];
+                completeTask(task);
+
+                if (task.break_duration > 0) {
+                    startBreak();
+                } else {
+                    timerState.currentTaskIndex++;
+                    startTask();
+                }
+            }
+        }
+    }
+
+    function updateTimerDisplay() {
+        const minutes = Math.floor(timerState.remainingSeconds / 60);
+        const seconds = timerState.remainingSeconds % 60;
+        timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function togglePause() {
+        timerState.isPaused = !timerState.isPaused;
+        pauseBtn.textContent = timerState.isPaused ? '▶️ 再開' : '⏸️ 一時停止';
+        statusText.textContent = timerState.isPaused ? '⏸️ 一時停止中...' : statusText.textContent.replace('⏸️ 一時停止中...', '');
+    }
+
+    function confirmStop() {
+        if (confirm('本当に中止しますか？\n途中で諦めると、次も諦めやすくなります。')) {
+            stopTimer();
+        }
+    }
+
+    function stopTimer() {
+        timerState.isRunning = false;
+        timerState.isPaused = false;
+        clearInterval(timerState.intervalId);
+
+        resetUI();
+        statusText.textContent = '中止しました';
+    }
+
+    async function completeTask(task) {
+        await fetch('/timer/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `task_id=${task.id}&difficulty=${task.difficulty}`
+        });
+    }
+
+    function completePlaylist() {
+        timerState.isRunning = false;
+        clearInterval(timerState.intervalId);
+
+        // Show completion dialog
+        const completedCount = timerState.tasks.length;
+        document.getElementById('complete-message').textContent =
+            `✨ ${completedCount}個のタスクを完了しました！`;
+        document.getElementById('complete-dialog').classList.remove('hidden');
+    }
+
+    function closeCompleteDialog() {
+        document.getElementById('complete-dialog').classList.add('hidden');
+        window.location.href = '/';
+    }
+
+    function resetUI() {
+        timerDisplay.textContent = '00:00';
+        progressText.textContent = '';
+        nextTaskText.textContent = '';
+        endTimeText.textContent = '';
+
+        playlistSelection.classList.remove('hidden');
+        startBtn.classList.remove('hidden');
+        pauseBtn.classList.add('hidden');
+        stopBtn.classList.add('hidden');
+        timerCard.classList.remove('timer-active');
+    }
+
+    // Quick start mode
+    {% if request.args.get('quick') %}
+    window.onload = function () {
+        timerState.tasks = [{
+            id: -1,
+            title: 'クイック集中タイム',
+            duration: 25,
+            break_duration: 5,
+            difficulty: 3
+        }];
+        startTimer();
+    };
+    {% endif %}
+</script>
+{% endblock %}

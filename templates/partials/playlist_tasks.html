@@ -1,0 +1,20 @@
+<!-- Playlist tasks partial for HTMX -->
+<script id="tasks-data" type="application/json">
+{{ tasks | tojson | safe }}
+</script>
+
+{% if tasks|length == 0 %}
+<p class="text-gray-400">このプレイリストにはタスクがありません</p>
+{% else %}
+<div class="space-y-2">
+    {% for item in schedule %}
+    <div class="flex items-center gap-4 bg-gray-800/50 rounded-lg p-3">
+        <span class="text-gray-400 w-14">{{ item.start }}</span>
+        <span class="flex-1">📝 {{ item.task.title }}</span>
+        <span class="text-gray-400">~{{ item.end }}</span>
+    </div>
+    {% endfor %}
+</div>
+
+<p class="text-success mt-4">✅ 予想終了: {{ estimated_end }}</p>
+{% endif %}

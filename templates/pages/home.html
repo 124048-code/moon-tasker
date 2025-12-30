@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}ホーム - Moon Tasker{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- タイトル -->
+    <h1 class="text-3xl font-bold text-blue-300">Moon Tasker 🌙</h1>
+
+    <!-- クイックスタートカード -->
+    <div class="glass rounded-xl p-6 hover:shadow-lg hover:shadow-primary/20 transition-all">
+        <div class="flex items-center gap-4 mb-4">
+            <span class="text-4xl text-success">▶️</span>
+            <div>
+                <h2 class="text-xl font-bold">今すぐ始める</h2>
+                <p class="text-gray-400">25分間の集中タイムを開始</p>
+            </div>
+        </div>
+        <a href="/timer?quick=true"
+            class="block w-full bg-success hover:bg-success/80 text-white font-bold py-3 px-6 rounded-lg text-center transition-colors">
+            ⏱️ クイックスタート
+        </a>
+    </div>
+
+    <!-- 月の情報カード -->
+    <div class="glass rounded-xl p-6">
+        <div class="flex items-center justify-center gap-3">
+            <span class="text-4xl">{{ moon_emoji }}</span>
+            <span class="text-xl font-bold">{{ moon_phase }}</span>
+        </div>
+    </div>
+
+    <!-- 生命体カード -->
+    {% if creature %}
+    <div class="glass rounded-xl p-6 border-2 
+        {% if creature.mood >= 70 %}border-blue-400
+        {% elif creature.mood >= 40 %}border-yellow-400
+        {% elif creature.mood >= 20 %}border-orange-400
+        {% else %}border-red-400{% endif %}">
+
+        <p class="text-gray-400 text-sm text-center mb-2">あなたの相棒</p>
+
+        <div class="text-center">
+            <span class="text-6xl">{{ emoji if emoji else '🥚' }}</span>
+            <h3 class="text-lg font-bold mt-2">{{ creature.name }}</h3>
+
+            {% if emotion and emotion.speech %}
+            <div class="bg-gray-700/50 rounded-lg px-4 py-2 mt-3 inline-block">
+                <p class="text-white">「{{ emotion.speech }}」</p>
+            </div>
+            {% endif %}
+
+            {% if emotion and emotion.desc %}
+            <p class="text-gray-400 text-sm italic mt-2">（{{ emotion.desc }}）</p>
+            {% endif %}
+
+            {% if warning %}
+            <p class="text-red-400 text-sm font-bold mt-2">{{ warning }}</p>
+            {% endif %}
+
+            <!-- 機嫌メーター -->
+            <div class="mt-4">
+                <div class="w-full bg-gray-700 rounded-full h-2">
+                    <div class="h-2 rounded-full transition-all duration-300
+                        {% if creature.mood >= 30 %}bg-pink-400{% else %}bg-red-500{% endif %}"
+                        style="width: {{ creature.mood }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- タスク統計 -->
+    <div class="glass rounded-xl p-6">
+        <h3 class="text-lg font-bold mb-4">今日のタスク</h3>
+        <div class="flex justify-around">
+            <div class="text-center">
+                <p class="text-3xl font-bold text-yellow-300">{{ pending_count }}</p>
+                <p class="text-gray-400 text-sm">未完了</p>
+            </div>
+            <div class="border-l border-gray-600 mx-4"></div>
+            <div class="text-center">
+                <p class="text-3xl font-bold text-green-400">{{ completed_count }}</p>
+                <p class="text-gray-400 text-sm">完了</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ストリーク -->
+    <div class="glass rounded-xl p-4">
+        <div class="flex items-center gap-4">
+            <span class="text-3xl">
+                {% if streak_data.current_streak > 0 %}🔥{% else %}💤{% endif %}
+            </span>
+            <div>
+                <p
+                    class="font-bold {% if streak_data.current_streak > 0 %}text-orange-400{% else %}text-gray-400{% endif %}">
+                    {% if streak_data.current_streak > 0 %}
+                    {{ streak_data.current_streak }} 日連続達成！
+                    {% else %}
+                    今日から始めよう！
+                    {% endif %}
+                </p>
+                <p class="text-gray-400 text-sm">
+                    最高記録: {{ streak_data.max_streak }}日 / 累計: {{ streak_data.total_days }}日
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

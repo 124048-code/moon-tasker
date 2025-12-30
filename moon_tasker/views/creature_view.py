@@ -156,7 +156,7 @@ class CreatureView(ft.Column):
             ft.Container(height=20),
             intro_card,
             ft.Container(height=30),
-            ft.Container(content=start_button, alignment=ft.alignment.center),
+            ft.Container(content=start_button),
         ]
     
     def _build_cooldown_view(self, creature, cooldown_date):
@@ -283,8 +283,7 @@ class CreatureView(ft.Column):
             bgcolor=bg_color,
             border=ft.border.all(2, border_color),
             border_radius=15,
-            padding=30,
-            alignment=ft.alignment.center
+            padding=30
         )
         
         # 放置メッセージ

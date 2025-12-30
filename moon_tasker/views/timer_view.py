@@ -42,8 +42,7 @@ class TimerView(ft.Column):
         self.playlist_dropdown = ft.Dropdown(
             label="プレイリストを選択",
             width=300,
-            options=[],
-            on_change=self.on_playlist_select
+            options=[]
         )
         
         self.start_button = ft.ElevatedButton(
@@ -103,7 +102,6 @@ class TimerView(ft.Column):
             bgcolor="#1e3a5f",
             border_radius=15,
             padding=60,
-            alignment=ft.alignment.center,
             expand=True
         )
         
@@ -158,8 +156,7 @@ class TimerView(ft.Column):
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             bgcolor="#1e3a5f",
             border_radius=10,
-            padding=40,
-            alignment=ft.alignment.center
+            padding=40
         )
         
         # プレイリストがない場合の案内カード
