@@ -1,18 +1,20 @@
 {% extends 'base.html' %}
 
-{% block title %}プレイリスト管理 - Moon Tasker{% endblock %}
+{% block title %}タスク管理 - Moon Tasker{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
-    <h1 class="text-3xl font-bold">プレイリスト管理 🎵</h1>
+    <h1 class="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+        タスク管理 📝
+    </h1>
 
     <!-- プレイリスト選択・作成 -->
-    <div class="glass rounded-xl p-6">
-        <h2 class="text-lg font-bold mb-4">プレイリスト</h2>
+    <div class="glass-card p-6">
+        <h2 class="text-lg font-bold mb-4">📋 プレイリスト</h2>
 
-        <div class="flex gap-4 mb-4">
+        <div class="flex gap-3 mb-4">
             <select id="playlist-select"
-                class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white"
+                class="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-white"
                 onchange="window.location.href='/playlist?selected=' + this.value">
                 <option value="">プレイリストを選択...</option>
                 {% for playlist in playlists %}
@@ -25,17 +27,17 @@
             {% if selected_id %}
             <form action="/playlist/{{ selected_id }}/delete" method="post">
                 <button type="submit" onclick="return confirm('このプレイリストを削除しますか？')"
-                    class="bg-danger hover:bg-danger/80 text-white p-3 rounded-lg">
+                    class="bg-red-600/20 hover:bg-red-600/40 text-red-400 p-3 rounded-xl border border-red-500/30 transition-colors">
                     🗑️
                 </button>
             </form>
             {% endif %}
         </div>
 
-        <form action="/playlist/create" method="post" class="flex gap-4">
+        <form action="/playlist/create" method="post" class="flex gap-3">
             <input type="text" name="name" placeholder="新規プレイリスト名"
-                class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white">
-            <button type="submit" class="bg-secondary hover:bg-secondary/80 text-white font-bold py-3 px-6 rounded-lg">
+                class="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
+            <button type="submit" class="btn-primary text-white font-bold py-3 px-6 rounded-xl">
                 ➕ 作成
             </button>
         </form>
@@ -43,7 +45,7 @@
 
     <!-- プレイリスト内タスク -->
     {% if selected_id %}
-    <div class="glass rounded-xl p-6">
+    <div class="glass-card p-6">
         <h2 class="text-lg font-bold mb-4">📋 プレイリストの内容</h2>
 
         {% if selected_tasks|length == 0 %}
@@ -51,12 +53,13 @@
         {% else %}
         <div class="space-y-2">
             {% for task in selected_tasks %}
-            <div class="flex items-center gap-4 bg-gray-800/50 rounded-lg p-3">
-                <span class="text-gray-400">{{ loop.index }}.</span>
-                <span class="flex-1">{{ task.title }}</span>
-                <span class="text-gray-400 text-sm">{{ task.duration }}分</span>
+            <div
+                class="flex items-center gap-3 bg-surface/50 rounded-xl p-3 border border-white/5 hover:border-primary/30 transition-colors">
+                <span class="text-gray-500 text-sm w-6">{{ loop.index }}.</span>
+                <span class="flex-1 font-medium">{{ task.title }}</span>
+                <span class="text-gray-400 text-sm px-2 py-1 bg-surface rounded-lg">{{ task.duration }}分</span>
                 <form action="/playlist/{{ selected_id }}/remove/{{ task.id }}" method="post" class="inline">
-                    <button type="submit" class="text-orange-400 hover:text-orange-300">❌</button>
+                    <button type="submit" class="text-orange-400 hover:text-orange-300 transition-colors">✕</button>
                 </form>
             </div>
             {% endfor %}
@@ -66,40 +69,46 @@
     {% endif %}
 
     <!-- タスク作成 -->
-    <div class="glass rounded-xl p-6">
-        <h2 class="text-lg font-bold mb-4">新規タスク作成</h2>
+    <div class="glass-card p-6">
+        <h2 class="text-lg font-bold mb-4">✨ 新規タスク作成</h2>
 
         <form action="/task/create" method="post" class="space-y-4">
             <input type="hidden" name="selected_playlist" value="{{ selected_id or '' }}">
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input type="text" name="title" placeholder="タスク名" required
-                    class="bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white">
+                    class="bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
 
-                <select name="difficulty" class="bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white">
-                    <option value="1">簡単</option>
-                    <option value="2" selected>普通</option>
-                    <option value="3">中程度</option>
-                    <option value="4">難しい</option>
-                    <option value="5">超難</option>
+                <select name="difficulty" class="bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
+                    <option value="1">⭐ 簡単</option>
+                    <option value="2" selected>⭐⭐ 普通</option>
+                    <option value="3">⭐⭐⭐ 中程度</option>
+                    <option value="4">⭐⭐⭐⭐ 難しい</option>
+                    <option value="5">⭐⭐⭐⭐⭐ 超難</option>
                 </select>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-                <input type="number" name="duration" value="25" placeholder="作業時間（分）"
-                    class="bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white">
-                <input type="number" name="break_duration" value="5" placeholder="休憩時間（分）"
-                    class="bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white">
+                <div>
+                    <label class="text-xs text-gray-400 mb-1 block">作業時間（分）</label>
+                    <input type="number" name="duration" value="25"
+                        class="w-full bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 mb-1 block">休憩時間（分）</label>
+                    <input type="number" name="break_duration" value="5"
+                        class="w-full bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
+                </div>
             </div>
 
-            <button type="submit" class="bg-secondary hover:bg-secondary/80 text-white font-bold py-3 px-6 rounded-lg">
+            <button type="submit" class="btn-primary text-white font-bold py-3 px-6 rounded-xl">
                 ➕ タスク作成
             </button>
         </form>
     </div>
 
     <!-- 利用可能タスク一覧 -->
-    <div class="glass rounded-xl p-6">
+    <div class="glass-card p-6">
         <h2 class="text-lg font-bold mb-2">📝 利用可能なタスク</h2>
         <p class="text-gray-400 text-sm mb-4">＋ボタンでプレイリストに追加</p>
 
@@ -108,19 +117,20 @@
         {% else %}
         <div class="space-y-2">
             {% for task in pending_tasks %}
-            <div class="flex items-center gap-4 bg-gray-800/50 rounded-lg p-3">
-                <span class="flex-1">{{ task.title }}</span>
-                <span class="text-gray-400 text-sm">{{ task.duration }}分 + 休憩{{ task.break_duration }}分</span>
+            <div class="flex items-center gap-3 bg-surface/50 rounded-xl p-3 border border-white/5">
+                <span class="flex-1 font-medium">{{ task.title }}</span>
+                <span class="text-gray-400 text-xs">{{ task.duration }}分 + {{ task.break_duration }}分休憩</span>
 
                 {% if selected_id %}
                 <form action="/playlist/{{ selected_id }}/add/{{ task.id }}" method="post" class="inline">
-                    <button type="submit" class="text-success hover:text-success/80">➕</button>
+                    <button type="submit"
+                        class="text-green-400 hover:text-green-300 text-lg transition-colors">➕</button>
                 </form>
                 {% endif %}
 
                 <form action="/task/{{ task.id }}/delete" method="post" class="inline">
                     <button type="submit" onclick="return confirm('このタスクを完全に削除しますか？')"
-                        class="text-danger hover:text-danger/80">🗑️</button>
+                        class="text-red-400 hover:text-red-300 transition-colors">🗑️</button>
                 </form>
             </div>
             {% endfor %}

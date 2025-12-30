@@ -4,108 +4,146 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
-    <!-- タイトル -->
-    <h1 class="text-3xl font-bold text-blue-300">Moon Tasker 🌙</h1>
-
-    <!-- クイックスタートカード -->
-    <div class="glass rounded-xl p-6 hover:shadow-lg hover:shadow-primary/20 transition-all">
-        <div class="flex items-center gap-4 mb-4">
-            <span class="text-4xl text-success">▶️</span>
-            <div>
-                <h2 class="text-xl font-bold">今すぐ始める</h2>
-                <p class="text-gray-400">25分間の集中タイムを開始</p>
-            </div>
+    <!-- ヘッダー -->
+    <div class="flex items-center justify-between">
+        <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            Moon Tasker
+        </h1>
+        <div class="flex items-center gap-2 text-lg">
+            <span>{{ moon_emoji }}</span>
+            <span class="text-gray-300">{{ moon_phase }}</span>
         </div>
-        <a href="/timer?quick=true"
-            class="block w-full bg-success hover:bg-success/80 text-white font-bold py-3 px-6 rounded-lg text-center transition-colors">
-            ⏱️ クイックスタート
-        </a>
     </div>
 
-    <!-- 月の情報カード -->
-    <div class="glass rounded-xl p-6">
-        <div class="flex items-center justify-center gap-3">
-            <span class="text-4xl">{{ moon_emoji }}</span>
-            <span class="text-xl font-bold">{{ moon_phase }}</span>
+    <!-- クイックスタートカード -->
+    <div class="glass-card p-6 cursor-pointer hover:scale-[1.02] transition-transform">
+        <div class="flex items-center gap-4">
+            <div
+                class="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-3xl shadow-lg shadow-green-500/30">
+                ▶️
+            </div>
+            <div class="flex-1">
+                <h2 class="text-xl font-bold">今すぐ始める</h2>
+                <p class="text-gray-400 text-sm">25分間の集中タイムを開始</p>
+            </div>
+            <a href="/timer?quick=true" class="btn-success text-white font-bold py-3 px-6 rounded-xl shadow-lg">
+                クイックスタート
+            </a>
         </div>
     </div>
 
     <!-- 生命体カード -->
     {% if creature %}
-    <div class="glass rounded-xl p-6 border-2 
-        {% if creature.mood >= 70 %}border-blue-400
-        {% elif creature.mood >= 40 %}border-yellow-400
-        {% elif creature.mood >= 20 %}border-orange-400
-        {% else %}border-red-400{% endif %}">
+    <div class="glass-card p-6 border-l-4 
+        {% if creature.mood >= 70 %}border-l-blue-400
+        {% elif creature.mood >= 40 %}border-l-yellow-400
+        {% elif creature.mood >= 20 %}border-l-orange-400
+        {% else %}border-l-red-400{% endif %}">
 
-        <p class="text-gray-400 text-sm text-center mb-2">あなたの相棒</p>
-
-        <div class="text-center">
-            <span class="text-6xl">{{ emoji if emoji else '🥚' }}</span>
-            <h3 class="text-lg font-bold mt-2">{{ creature.name }}</h3>
-
-            {% if emotion and emotion.speech %}
-            <div class="bg-gray-700/50 rounded-lg px-4 py-2 mt-3 inline-block">
-                <p class="text-white">「{{ emotion.speech }}」</p>
+        <div class="flex items-start gap-6">
+            <!-- 生命体ビジュアル -->
+            <div class="text-center">
+                <div class="text-6xl mb-2">{{ emoji if emoji else '🥚' }}</div>
+                <p class="text-sm text-gray-400">Lv.{{ creature.evolution_stage }}</p>
             </div>
-            {% endif %}
 
-            {% if emotion and emotion.desc %}
-            <p class="text-gray-400 text-sm italic mt-2">（{{ emotion.desc }}）</p>
-            {% endif %}
+            <!-- 情報 -->
+            <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                    <h3 class="text-lg font-bold">{{ creature.name }}</h3>
+                    <span class="text-xs px-2 py-1 rounded-full 
+                        {% if creature.mood >= 70 %}bg-blue-500/20 text-blue-300
+                        {% elif creature.mood >= 40 %}bg-yellow-500/20 text-yellow-300
+                        {% elif creature.mood >= 20 %}bg-orange-500/20 text-orange-300
+                        {% else %}bg-red-500/20 text-red-300{% endif %}">
+                        {% if creature.mood >= 70 %}ごきげん{% elif creature.mood >= 40 %}ふつう{% elif creature.mood >= 20
+                        %}さびしい{% else %}きけん{% endif %}
+                    </span>
+                </div>
 
-            {% if warning %}
-            <p class="text-red-400 text-sm font-bold mt-2">{{ warning }}</p>
-            {% endif %}
+                {% if emotion and emotion.speech %}
+                <div class="bg-surface/50 rounded-lg px-4 py-2 mb-3 inline-block">
+                    <p class="text-white">「{{ emotion.speech }}」</p>
+                </div>
+                {% endif %}
 
-            <!-- 機嫌メーター -->
-            <div class="mt-4">
-                <div class="w-full bg-gray-700 rounded-full h-2">
-                    <div class="h-2 rounded-full transition-all duration-300
-                        {% if creature.mood >= 30 %}bg-pink-400{% else %}bg-red-500{% endif %}"
-                        style="width: {{ creature.mood }}%"></div>
+                {% if emotion and emotion.desc %}
+                <p class="text-gray-400 text-sm italic">（{{ emotion.desc }}）</p>
+                {% endif %}
+
+                {% if warning %}
+                <p class="text-red-400 text-sm font-bold mt-2">⚠️ {{ warning }}</p>
+                {% endif %}
+
+                <!-- 機嫌メーター -->
+                <div class="mt-4">
+                    <div class="flex justify-between text-xs text-gray-400 mb-1">
+                        <span>機嫌</span>
+                        <span>{{ creature.mood }}%</span>
+                    </div>
+                    <div class="w-full bg-surface rounded-full h-2 overflow-hidden">
+                        <div class="h-2 rounded-full transition-all duration-500 progress-glow
+                            {% if creature.mood >= 70 %}bg-pink-400
+                            {% elif creature.mood >= 40 %}bg-yellow-400
+                            {% elif creature.mood >= 20 %}bg-orange-400
+                            {% else %}bg-red-500{% endif %}" style="width: {{ creature.mood }}%"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     {% endif %}
 
-    <!-- タスク統計 -->
-    <div class="glass rounded-xl p-6">
-        <h3 class="text-lg font-bold mb-4">今日のタスク</h3>
-        <div class="flex justify-around">
-            <div class="text-center">
-                <p class="text-3xl font-bold text-yellow-300">{{ pending_count }}</p>
-                <p class="text-gray-400 text-sm">未完了</p>
+    <!-- 統計カード -->
+    <div class="grid grid-cols-2 gap-4">
+        <!-- 今日のタスク -->
+        <div class="glass-card p-5">
+            <h3 class="text-sm text-gray-400 mb-3">📊 今日のタスク</h3>
+            <div class="flex items-baseline gap-4">
+                <div class="text-center">
+                    <p class="text-3xl font-bold text-yellow-400">{{ pending_count }}</p>
+                    <p class="text-xs text-gray-400">未完了</p>
+                </div>
+                <div class="text-2xl text-gray-600">/</div>
+                <div class="text-center">
+                    <p class="text-3xl font-bold text-green-400">{{ completed_count }}</p>
+                    <p class="text-xs text-gray-400">完了</p>
+                </div>
             </div>
-            <div class="border-l border-gray-600 mx-4"></div>
-            <div class="text-center">
-                <p class="text-3xl font-bold text-green-400">{{ completed_count }}</p>
-                <p class="text-gray-400 text-sm">完了</p>
+        </div>
+
+        <!-- ストリーク -->
+        <div class="glass-card p-5">
+            <h3 class="text-sm text-gray-400 mb-3">
+                {% if streak_data.current_streak > 0 %}🔥{% else %}💤{% endif %} 連続記録
+            </h3>
+            <div class="flex items-baseline gap-2">
+                <p
+                    class="text-3xl font-bold {% if streak_data.current_streak > 0 %}text-orange-400{% else %}text-gray-500{% endif %}">
+                    {{ streak_data.current_streak }}
+                </p>
+                <p class="text-gray-400">日連続</p>
             </div>
+            <p class="text-xs text-gray-500 mt-2">
+                最高: {{ streak_data.max_streak }}日 / 累計: {{ streak_data.total_days }}日
+            </p>
         </div>
     </div>
 
-    <!-- ストリーク -->
-    <div class="glass rounded-xl p-4">
-        <div class="flex items-center gap-4">
-            <span class="text-3xl">
-                {% if streak_data.current_streak > 0 %}🔥{% else %}💤{% endif %}
-            </span>
-            <div>
-                <p
-                    class="font-bold {% if streak_data.current_streak > 0 %}text-orange-400{% else %}text-gray-400{% endif %}">
-                    {% if streak_data.current_streak > 0 %}
-                    {{ streak_data.current_streak }} 日連続達成！
-                    {% else %}
-                    今日から始めよう！
-                    {% endif %}
-                </p>
-                <p class="text-gray-400 text-sm">
-                    最高記録: {{ streak_data.max_streak }}日 / 累計: {{ streak_data.total_days }}日
-                </p>
-            </div>
-        </div>
+    <!-- クイックリンク -->
+    <div class="grid grid-cols-3 gap-4">
+        <a href="/timer" class="glass-card p-4 text-center hover:scale-105 transition-transform">
+            <span class="text-3xl">⏱️</span>
+            <p class="text-sm mt-2">タイマー</p>
+        </a>
+        <a href="/playlist" class="glass-card p-4 text-center hover:scale-105 transition-transform">
+            <span class="text-3xl">📝</span>
+            <p class="text-sm mt-2">タスク管理</p>
+        </a>
+        <a href="/creature" class="glass-card p-4 text-center hover:scale-105 transition-transform">
+            <span class="text-3xl">🐾</span>
+            <p class="text-sm mt-2">生命体</p>
+        </a>
     </div>
 </div>
 {% endblock %}

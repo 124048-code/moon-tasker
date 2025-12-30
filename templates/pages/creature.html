@@ -4,27 +4,29 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
-    <h1 class="text-3xl font-bold">生命体 🐾</h1>
+    <h1 class="text-3xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+        生命体 🐾
+    </h1>
 
     {% if creature %}
     <!-- 生命体表示 -->
-    <div class="glass rounded-xl p-8 text-center border-2 
-        {% if creature.mood >= 70 %}border-blue-400
-        {% elif creature.mood >= 40 %}border-yellow-400
-        {% elif creature.mood >= 20 %}border-orange-400
-        {% else %}border-red-400{% endif %}">
+    <div class="glass-card p-8 text-center border-2 
+        {% if creature.mood >= 70 %}border-blue-400/50
+        {% elif creature.mood >= 40 %}border-yellow-400/50
+        {% elif creature.mood >= 20 %}border-orange-400/50
+        {% else %}border-red-400/50{% endif %}">
 
         <p class="text-gray-400 text-sm mb-4">あなたの相棒</p>
 
         <!-- 生命体ビジュアル -->
-        <div class="text-8xl mb-4">{{ emoji }}</div>
+        <div class="text-8xl mb-4 animate-bounce">{{ emoji }}</div>
 
         <h2 class="text-2xl font-bold">{{ creature.name }}</h2>
         <p class="text-gray-400">Lv.{{ creature.evolution_stage }}</p>
 
         <!-- 感情表示 -->
         {% if emotion %}
-        <div class="bg-gray-700/50 rounded-lg px-6 py-3 mt-4 inline-block">
+        <div class="bg-surface/50 rounded-xl px-6 py-3 mt-4 inline-block border border-white/10">
             <p class="text-lg">「{{ emotion.speech }}」</p>
         </div>
         <p class="text-gray-400 text-sm italic mt-2">（{{ emotion.desc }}）</p>
@@ -35,56 +37,63 @@
         {% endif %}
 
         <!-- 機嫌メーター -->
-        <div class="mt-6">
-            <p class="text-sm text-gray-400 mb-2">機嫌: {{ creature.mood }}%</p>
-            <div class="w-full max-w-xs mx-auto bg-gray-700 rounded-full h-4">
-                <div class="h-4 rounded-full transition-all duration-500
-                    {% if creature.mood >= 70 %}bg-pink-400
-                    {% elif creature.mood >= 40 %}bg-yellow-400
-                    {% elif creature.mood >= 20 %}bg-orange-400
-                    {% else %}bg-red-500{% endif %}" style="width: {{ creature.mood }}%"></div>
+        <div class="mt-8 max-w-md mx-auto">
+            <div class="flex justify-between text-sm text-gray-400 mb-2">
+                <span>機嫌</span>
+                <span>{{ creature.mood }}%</span>
+            </div>
+            <div class="w-full bg-surface rounded-full h-4 overflow-hidden">
+                <div class="h-4 rounded-full transition-all duration-500 progress-glow
+                    {% if creature.mood >= 70 %}bg-gradient-to-r from-pink-400 to-pink-500
+                    {% elif creature.mood >= 40 %}bg-gradient-to-r from-yellow-400 to-yellow-500
+                    {% elif creature.mood >= 20 %}bg-gradient-to-r from-orange-400 to-orange-500
+                    {% else %}bg-gradient-to-r from-red-500 to-red-600{% endif %}" style="width: {{ creature.mood }}%">
+                </div>
             </div>
         </div>
 
         <!-- 経験値 -->
-        <div class="mt-4">
-            <p class="text-sm text-gray-400 mb-2">経験値: {{ creature.experience }}</p>
-            <div class="w-full max-w-xs mx-auto bg-gray-700 rounded-full h-2">
-                <div class="h-2 rounded-full bg-primary transition-all duration-500"
-                    style="width: {{ (creature.experience % 100) }}%"></div>
+        <div class="mt-4 max-w-md mx-auto">
+            <div class="flex justify-between text-sm text-gray-400 mb-2">
+                <span>経験値</span>
+                <span>{{ creature.experience if creature.experience else 0 }}</span>
+            </div>
+            <div class="w-full bg-surface rounded-full h-2 overflow-hidden">
+                <div class="h-2 rounded-full bg-gradient-to-r from-purple-400 to-purple-600 transition-all duration-500"
+                    style="width: {{ ((creature.experience if creature.experience else 0) % 100) }}%"></div>
             </div>
         </div>
     </div>
 
     <!-- ステータス詳細 -->
-    <div class="glass rounded-xl p-6">
-        <h3 class="text-lg font-bold mb-4">📊 ステータス</h3>
-
-        <div class="grid grid-cols-2 gap-4">
-            <div class="bg-gray-800/50 rounded-lg p-4 text-center">
-                <p class="text-3xl font-bold text-primary">{{ creature.evolution_stage }}</p>
-                <p class="text-gray-400 text-sm">進化段階</p>
-            </div>
-            <div class="bg-gray-800/50 rounded-lg p-4 text-center">
-                <p class="text-3xl font-bold text-success">{{ creature.experience }}</p>
-                <p class="text-gray-400 text-sm">累計経験値</p>
-            </div>
+    <div class="grid grid-cols-2 gap-4">
+        <div class="glass-card p-5 text-center">
+            <p class="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                {{ creature.evolution_stage }}
+            </p>
+            <p class="text-gray-400 text-sm mt-1">進化段階</p>
+        </div>
+        <div class="glass-card p-5 text-center">
+            <p class="text-4xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+                {{ creature.experience if creature.experience else 0 }}
+            </p>
+            <p class="text-gray-400 text-sm mt-1">累計経験値</p>
         </div>
     </div>
 
     <!-- 進化履歴 -->
     {% if evolution_history|length > 0 %}
-    <div class="glass rounded-xl p-6">
-        <h3 class="text-lg font-bold mb-4">🌟 進化履歴</h3>
+    <div class="glass-card p-6">
+        <h3 class="text-lg font-bold mb-4">🌟 進化の軌跡</h3>
 
-        <div class="flex justify-center gap-4">
+        <div class="flex justify-center items-center gap-2 flex-wrap">
             {% for stage in evolution_history %}
-            <div class="text-center">
+            <div class="text-center p-3 bg-surface/50 rounded-xl border border-white/10">
                 <span class="text-3xl">{{ stage.emoji }}</span>
                 <p class="text-xs text-gray-400 mt-1">{{ stage.name }}</p>
             </div>
             {% if not loop.last %}
-            <span class="text-2xl text-gray-500 self-center">→</span>
+            <span class="text-2xl text-gray-500">→</span>
             {% endif %}
             {% endfor %}
         </div>
@@ -93,32 +102,48 @@
 
     {% else %}
     <!-- 新規育成開始 -->
-    <div class="glass rounded-xl p-8 text-center">
-        <span class="text-8xl">🥚</span>
-        <h2 class="text-2xl font-bold mt-4">生命体を育てよう！</h2>
-        <p class="text-gray-400 mt-2">タスクを完了して経験値を貯め、生命体を進化させましょう</p>
+    <div class="glass-card p-10 text-center">
+        <span class="text-8xl block mb-4">🥚</span>
+        <h2 class="text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+            生命体を育てよう！
+        </h2>
+        <p class="text-gray-400 mt-3">タスクを完了して経験値を貯め、生命体を進化させましょう</p>
 
-        <form action="/creature/start" method="post" class="mt-6 space-y-4">
+        <form action="/creature/start" method="post" class="mt-8 space-y-4">
             <input type="text" name="name" placeholder="名前を入力（例: ルナ）" value="ルナ"
-                class="w-full max-w-xs bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white text-center">
+                class="w-full max-w-xs bg-surface border border-white/10 rounded-xl px-4 py-3 text-white text-center">
 
-            <button type="submit"
-                class="block mx-auto bg-primary hover:bg-primary/80 text-white font-bold py-3 px-8 rounded-lg">
+            <button type="submit" class="block mx-auto btn-primary text-white font-bold py-3 px-8 rounded-xl">
                 🥚 育成開始
             </button>
         </form>
     </div>
 
     <!-- 説明 -->
-    <div class="glass rounded-xl p-6">
+    <div class="glass-card p-6">
         <h3 class="text-lg font-bold mb-4">💡 育成のヒント</h3>
-        <ul class="space-y-2 text-gray-300">
-            <li>🎯 タスクを完了すると経験値が貯まります</li>
-            <li>⏱️ 難しいタスクほど多くの経験値がもらえます</li>
-            <li>🌟 経験値が一定量に達すると進化します</li>
-            <li>😢 長時間タスクをしないと機嫌が下がります</li>
-            <li>🎁 時々プレゼントをくれることも！</li>
-        </ul>
+        <div class="space-y-3">
+            <div class="flex items-start gap-3">
+                <span class="text-xl">🎯</span>
+                <p class="text-gray-300">タスクを完了すると経験値が貯まります</p>
+            </div>
+            <div class="flex items-start gap-3">
+                <span class="text-xl">⏱️</span>
+                <p class="text-gray-300">難しいタスクほど多くの経験値がもらえます</p>
+            </div>
+            <div class="flex items-start gap-3">
+                <span class="text-xl">🌟</span>
+                <p class="text-gray-300">経験値が一定量に達すると進化します</p>
+            </div>
+            <div class="flex items-start gap-3">
+                <span class="text-xl">😢</span>
+                <p class="text-gray-300">長時間タスクをしないと機嫌が下がります</p>
+            </div>
+            <div class="flex items-start gap-3">
+                <span class="text-xl">🎁</span>
+                <p class="text-gray-300">時々プレゼントをくれることも！</p>
+            </div>
+        </div>
     </div>
     {% endif %}
 </div>

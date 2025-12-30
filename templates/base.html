@@ -1,10 +1,17 @@
 <!DOCTYPE html>
 <html lang="ja" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Moon Tasker{% endblock %}</title>
-    
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap"
+        rel="stylesheet">
+
     <!-- TailwindCSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -12,114 +19,300 @@
             darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: {
+                        'zen': ['"Zen Kaku Gothic New"', 'sans-serif'],
+                    },
                     colors: {
                         primary: '#7c4dff',
                         secondary: '#00bcd4',
-                        surface: '#1a1a2e',
-                        accent: '#ffc107',
-                        success: '#4caf50',
-                        danger: '#f44336',
-                        warning: '#ff9800',
+                        surface: {
+                            DEFAULT: '#0a0a1a',
+                            light: '#1a1a2e',
+                            card: '#1e3a5f',
+                        },
+                        accent: {
+                            pink: '#ff6b9d',
+                            blue: '#64b5f6',
+                            gold: '#ffc107',
+                            green: '#4caf50',
+                            orange: '#ff9800',
+                        }
                     }
                 }
             }
         }
     </script>
-    
+
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    
+
     <!-- Custom Styles -->
     <style>
+        * {
+            font-family: 'Zen Kaku Gothic New', sans-serif;
+        }
+
         body {
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f1a2e 100%);
+            background: linear-gradient(180deg, #0a0a1a 0%, #0f1a2e 50%, #1a0a2e 100%);
+            background-attachment: fixed;
             min-height: 100vh;
         }
-        .glass {
-            background: rgba(30, 58, 95, 0.7);
-            backdrop-filter: blur(10px);
+
+        /* 星の背景アニメーション */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.3), transparent),
+                radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.2), transparent),
+                radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.4), transparent),
+                radial-gradient(2px 2px at 160px 120px, rgba(255, 255, 255, 0.25), transparent),
+                radial-gradient(1px 1px at 230px 80px, rgba(255, 255, 255, 0.35), transparent),
+                radial-gradient(2px 2px at 300px 150px, rgba(255, 255, 255, 0.2), transparent),
+                radial-gradient(1px 1px at 350px 200px, rgba(255, 255, 255, 0.3), transparent);
+            background-size: 400px 400px;
+            pointer-events: none;
+            z-index: 0;
+            animation: twinkle 8s ease-in-out infinite;
+        }
+
+        @keyframes twinkle {
+
+            0%,
+            100% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* Glass morphism カード */
+        .glass-card {
+            background: rgba(30, 58, 95, 0.6);
+            backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
-        .nav-item:hover {
-            background: rgba(124, 77, 255, 0.3);
+
+        .glass-card:hover {
+            border-color: rgba(124, 77, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(124, 77, 255, 0.15);
         }
-        .nav-item.active {
-            background: rgba(124, 77, 255, 0.5);
-            border-left: 3px solid #7c4dff;
+
+        /* ナビゲーションスタイル */
+        .nav-link {
+            position: relative;
+            transition: all 0.3s ease;
         }
-        .htmx-indicator {
-            display: none;
+
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: transparent;
+            transition: background 0.3s ease;
         }
-        .htmx-request .htmx-indicator {
-            display: inline-block;
+
+        .nav-link:hover {
+            background: rgba(124, 77, 255, 0.15);
         }
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 20px rgba(124, 77, 255, 0.5); }
-            50% { box-shadow: 0 0 40px rgba(124, 77, 255, 0.8); }
+
+        .nav-link.active {
+            background: rgba(124, 77, 255, 0.25);
         }
+
+        .nav-link.active::before {
+            background: linear-gradient(180deg, #7c4dff, #ff6b9d);
+        }
+
+        /* ボタンスタイル */
+        .btn-primary {
+            background: linear-gradient(135deg, #7c4dff 0%, #9c6dff 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(124, 77, 255, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
+            color: #000;
+        }
+
+        /* プログレスバー */
+        .progress-glow {
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        /* タイマー表示 */
+        .timer-display {
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 30px rgba(124, 77, 255, 0.5);
+        }
+
         .timer-active {
             animation: pulse-glow 2s ease-in-out infinite;
         }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(124, 77, 255, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(124, 77, 255, 0.7);
+            }
+        }
+
+        /* 生命体の機嫌メーター */
+        .mood-bar {
+            background: linear-gradient(90deg, #ff6b9d 0%, #ff9800 50%, #4caf50 100%);
+        }
+
+        /* フォームスタイル */
+        input,
+        select,
+        textarea {
+            background: rgba(10, 10, 26, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: #7c4dff !important;
+            box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.2) !important;
+            outline: none;
+        }
+
+        /* アニメーション */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* スクロールバー */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 10, 26, 0.5);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(124, 77, 255, 0.5);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(124, 77, 255, 0.7);
+        }
     </style>
-    
+
     {% block head %}{% endblock %}
 </head>
-<body class="text-white">
-    <div class="flex min-h-screen">
+
+<body class="text-white relative">
+    <div class="flex min-h-screen relative z-10">
         <!-- サイドナビゲーション -->
-        <nav class="w-24 bg-surface/80 backdrop-blur-lg border-r border-white/10 flex flex-col py-4">
-            <div class="text-center mb-6">
-                <span class="text-2xl">🌙</span>
+        <nav class="w-20 bg-surface/90 backdrop-blur-xl border-r border-white/5 flex flex-col py-6 shrink-0">
+            <!-- ロゴ -->
+            <div class="text-center mb-8">
+                <span class="text-3xl">🌙</span>
+                <p class="text-[10px] text-gray-400 mt-1">Moon Tasker</p>
             </div>
-            
-            <a href="/" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'home' %}active{% endif %}">
-                <span class="text-xl">🏠</span>
-                <span class="text-xs mt-1">ホーム</span>
-            </a>
-            
-            <a href="/timer" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'timer' %}active{% endif %}">
-                <span class="text-xl">⏱️</span>
-                <span class="text-xs mt-1">タイマー</span>
-            </a>
-            
-            <a href="/playlist" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'playlist' %}active{% endif %}">
-                <span class="text-xl">📝</span>
-                <span class="text-xs mt-1">タスク</span>
-            </a>
-            
-            <a href="/moon-cycle" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'moon_cycle' %}active{% endif %}">
-                <span class="text-xl">🌙</span>
-                <span class="text-xs mt-1">月サイクル</span>
-            </a>
-            
-            <a href="/collection" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'collection' %}active{% endif %}">
-                <span class="text-xl">⭐</span>
-                <span class="text-xs mt-1">星座図鑑</span>
-            </a>
-            
-            <a href="/creature" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'creature' %}active{% endif %}">
-                <span class="text-xl">🐾</span>
-                <span class="text-xs mt-1">生命体</span>
-            </a>
-            
-            <a href="/friends" class="nav-item flex flex-col items-center py-3 px-2 mb-1 {% if request.endpoint == 'friends' %}active{% endif %}">
-                <span class="text-xl">👥</span>
-                <span class="text-xs mt-1">フレンド</span>
-            </a>
+
+            <!-- ナビゲーションリンク -->
+            <div class="flex-1 flex flex-col gap-1">
+                <a href="/"
+                    class="nav-link flex flex-col items-center py-3 px-2 {% if request.endpoint == 'home' %}active{% endif %}">
+                    <span class="text-xl mb-1">🏠</span>
+                    <span class="text-[10px] text-gray-300">ホーム</span>
+                </a>
+
+                <a href="/timer"
+                    class="nav-link flex flex-col items-center py-3 px-2 {% if request.endpoint == 'timer' %}active{% endif %}">
+                    <span class="text-xl mb-1">⏱️</span>
+                    <span class="text-[10px] text-gray-300">タイマー</span>
+                </a>
+
+                <a href="/playlist"
+                    class="nav-link flex flex-col items-center py-3 px-2 {% if request.endpoint == 'playlist' %}active{% endif %}">
+                    <span class="text-xl mb-1">📝</span>
+                    <span class="text-[10px] text-gray-300">タスク</span>
+                </a>
+
+                <a href="/moon-cycle"
+                    class="nav-link flex flex-col items-center py-3 px-2 {% if request.endpoint == 'moon_cycle' %}active{% endif %}">
+                    <span class="text-xl mb-1">🎯</span>
+                    <span class="text-[10px] text-gray-300">目標</span>
+                </a>
+
+                <a href="/collection"
+                    class="nav-link flex flex-col items-center py-3 px-2 {% if request.endpoint == 'collection' %}active{% endif %}">
+                    <span class="text-xl mb-1">⭐</span>
+                    <span class="text-[10px] text-gray-300">図鑑</span>
+                </a>
+
+                <a href="/creature"
+                    class="nav-link flex flex-col items-center py-3 px-2 {% if request.endpoint == 'creature' %}active{% endif %}">
+                    <span class="text-xl mb-1">🐾</span>
+                    <span class="text-[10px] text-gray-300">生命体</span>
+                </a>
+
+                <a href="/friends"
+                    class="nav-link flex flex-col items-center py-3 px-2 {% if request.endpoint == 'friends' %}active{% endif %}">
+                    <span class="text-xl mb-1">👥</span>
+                    <span class="text-[10px] text-gray-300">フレンド</span>
+                </a>
+            </div>
         </nav>
-        
+
         <!-- メインコンテンツ -->
-        <main class="flex-1 p-6 overflow-auto">
-            {% block content %}{% endblock %}
+        <main class="flex-1 p-8 overflow-auto">
+            <div class="fade-in">
+                {% block content %}{% endblock %}
+            </div>
         </main>
     </div>
-    
-    <!-- HTMX Loading Indicator -->
-    <div id="global-loader" class="htmx-indicator fixed top-4 right-4 bg-primary/80 px-4 py-2 rounded-lg">
-        <span class="animate-spin inline-block mr-2">⏳</span>
-        Loading...
-    </div>
-    
+
     {% block scripts %}{% endblock %}
 </body>
+
 </html>

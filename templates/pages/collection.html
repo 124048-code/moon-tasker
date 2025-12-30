@@ -4,23 +4,30 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
-    <h1 class="text-3xl font-bold">星座図鑑 ⭐</h1>
+    <h1 class="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+        星座図鑑 ⭐
+    </h1>
     <p class="text-gray-400">タスクを達成してバッジを集めよう！</p>
 
     <!-- 獲得済みバッジ -->
-    <div class="glass rounded-xl p-6">
-        <h2 class="text-xl font-bold mb-4 text-yellow-400">🏆 獲得済みバッジ</h2>
+    <div class="glass-card p-6">
+        <h2 class="text-lg font-bold mb-4 text-yellow-400">🏆 獲得済みバッジ</h2>
 
         {% if unlocked_badges|length == 0 %}
-        <p class="text-gray-400">まだバッジを獲得していません</p>
+        <div class="text-center py-8">
+            <span class="text-5xl mb-4 block">🔒</span>
+            <p class="text-gray-400">まだバッジを獲得していません</p>
+            <p class="text-gray-500 text-sm mt-2">タスクを完了してバッジを解除しましょう！</p>
+        </div>
         {% else %}
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
             {% for badge in unlocked_badges %}
-            <div class="text-center p-4 bg-yellow-900/30 rounded-xl border border-yellow-500/50">
-                <span class="text-4xl">⭐</span>
-                <p class="font-bold mt-2 text-sm">{{ badge.name }}</p>
+            <div
+                class="p-4 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-xl border border-yellow-500/30 text-center hover:scale-105 transition-transform">
+                <span class="text-4xl block mb-2">⭐</span>
+                <p class="font-bold text-sm">{{ badge.name }}</p>
                 <p class="text-yellow-400 text-xs">{{ badge.constellation_name }}</p>
-                <p class="text-gray-400 text-xs mt-1">{{ badge.description }}</p>
+                <p class="text-gray-400 text-xs mt-2">{{ badge.description }}</p>
             </div>
             {% endfor %}
         </div>
@@ -28,36 +35,41 @@
     </div>
 
     <!-- 未獲得バッジ -->
-    <div class="glass rounded-xl p-6">
-        <h2 class="text-xl font-bold mb-4 text-gray-400">🔒 未獲得バッジ</h2>
+    <div class="glass-card p-6">
+        <h2 class="text-lg font-bold mb-4 text-gray-400">🔒 未獲得バッジ</h2>
 
         {% if locked_badges|length == 0 %}
-        <p class="text-success">すべてのバッジを獲得しました！🎉</p>
+        <div class="text-center py-8">
+            <span class="text-5xl mb-4 block">🎉</span>
+            <p class="text-green-400 font-bold">すべてのバッジを獲得しました！</p>
+        </div>
         {% else %}
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
             {% for badge in locked_badges %}
-            <div class="text-center p-4 bg-gray-800/50 rounded-xl border border-gray-600 opacity-60">
-                <span class="text-4xl grayscale">🌟</span>
-                <p class="font-bold mt-2 text-sm text-gray-400">{{ badge.name }}</p>
+            <div
+                class="p-4 bg-surface/50 rounded-xl border border-white/10 text-center opacity-60 hover:opacity-80 transition-opacity">
+                <span class="text-4xl block mb-2 grayscale">🌟</span>
+                <p class="font-bold text-sm text-gray-400">{{ badge.name }}</p>
                 <p class="text-gray-500 text-xs">{{ badge.constellation_name }}</p>
-                <p class="text-gray-500 text-xs mt-1">{{ badge.description }}</p>
+                <p class="text-gray-500 text-xs mt-2">{{ badge.description }}</p>
             </div>
             {% endfor %}
         </div>
         {% endif %}
     </div>
 
-    <!-- バッジ統計 -->
-    <div class="glass rounded-xl p-6 text-center">
-        <p class="text-2xl font-bold text-yellow-400">
+    <!-- 進捗 -->
+    <div class="glass-card p-6 text-center">
+        <p class="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
             {{ unlocked_badges|length }} / {{ unlocked_badges|length + locked_badges|length }}
         </p>
-        <p class="text-gray-400">バッジ獲得済み</p>
+        <p class="text-gray-400 mt-1">バッジ獲得済み</p>
 
-        <div class="w-full bg-gray-700 rounded-full h-3 mt-4">
+        <div class="w-full max-w-md mx-auto bg-surface rounded-full h-3 mt-4 overflow-hidden">
             {% set total = unlocked_badges|length + locked_badges|length %}
             {% set percent = (unlocked_badges|length / total * 100) if total > 0 else 0 %}
-            <div class="h-3 rounded-full bg-yellow-400 transition-all duration-500" style="width: {{ percent }}%"></div>
+            <div class="h-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 transition-all duration-500 progress-glow"
+                style="width: {{ percent }}%"></div>
         </div>
     </div>
 </div>
