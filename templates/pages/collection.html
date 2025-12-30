@@ -6,6 +6,21 @@
 <h1 class="page-title">星座図鑑 ⭐</h1>
 <p class="text-muted mb-6">タスクを達成してバッジを集めよう！</p>
 
+<!-- 進捗 -->
+<div class="card text-center mb-6">
+    <p
+        style="font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #ffc107, #ff9800); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        {{ unlocked_badges|length }} / {{ unlocked_badges|length + locked_badges|length }}
+    </p>
+    <p class="text-muted mt-2">バッジ獲得済み</p>
+
+    <div class="progress-bar mt-4" style="max-width: 400px; margin: 16px auto 0;">
+        {% set total = unlocked_badges|length + locked_badges|length %}
+        {% set percent = (unlocked_badges|length / total * 100) if total > 0 else 0 %}
+        <div class="progress-bar-fill gold" style="width: {{ percent }}%;"></div>
+    </div>
+</div>
+
 <!-- 獲得済みバッジ -->
 <div class="card">
     <h2 class="section-title" style="color: #ffc107;">🏆 獲得済みバッジ</h2>
@@ -19,11 +34,12 @@
     {% else %}
     <div class="badge-grid">
         {% for badge in unlocked_badges %}
-        <div class="badge-card unlocked">
+        <div class="badge-card unlocked"
+            onclick="showBadgeDetail('{{ badge.name }}', '{{ badge.constellation_name }}', '{{ badge.description }}', true)"
+            style="cursor: pointer;">
             <span class="badge-icon">⭐</span>
             <p class="badge-name">{{ badge.name }}</p>
             <p class="badge-desc" style="color: #ffc107;">{{ badge.constellation_name }}</p>
-            <p class="badge-desc">{{ badge.description }}</p>
         </div>
         {% endfor %}
     </div>
@@ -42,29 +58,42 @@
     {% else %}
     <div class="badge-grid">
         {% for badge in locked_badges %}
-        <div class="badge-card locked">
+        <div class="badge-card locked"
+            onclick="showBadgeDetail('{{ badge.name }}', '{{ badge.constellation_name }}', '{{ badge.description }}', false)"
+            style="cursor: pointer;">
             <span class="badge-icon" style="filter: grayscale(1);">🌟</span>
             <p class="badge-name">{{ badge.name }}</p>
             <p class="badge-desc">{{ badge.constellation_name }}</p>
-            <p class="badge-desc">{{ badge.description }}</p>
         </div>
         {% endfor %}
     </div>
     {% endif %}
 </div>
 
-<!-- 進捗 -->
-<div class="card text-center">
-    <p
-        style="font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #ffc107, #ff9800); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        {{ unlocked_badges|length }} / {{ unlocked_badges|length + locked_badges|length }}
-    </p>
-    <p class="text-muted mt-2">バッジ獲得済み</p>
-
-    <div class="progress-bar mt-4" style="max-width: 400px; margin: 16px auto 0;">
-        {% set total = unlocked_badges|length + locked_badges|length %}
-        {% set percent = (unlocked_badges|length / total * 100) if total > 0 else 0 %}
-        <div class="progress-bar-fill gold" style="width: {{ percent }}%;"></div>
+<!-- バッジ詳細ダイアログ -->
+<div id="badge-detail-dialog" class="dialog-overlay hidden">
+    <div class="card dialog-content text-center" style="padding: 32px; max-width: 400px;">
+        <span id="badge-detail-icon" style="font-size: 64px; display: block; margin-bottom: 16px;"></span>
+        <h2 id="badge-detail-name" class="section-title"></h2>
+        <p id="badge-detail-constellation" style="color: #ffc107; margin-bottom: 16px;"></p>
+        <p id="badge-detail-description" class="text-muted"></p>
+        <div id="badge-detail-status" class="mt-4"></div>
+        <button onclick="document.getElementById('badge-detail-dialog').classList.add('hidden')"
+            class="btn btn-secondary mt-6">閉じる</button>
     </div>
 </div>
+
+<script>
+    function showBadgeDetail(name, constellation, description, unlocked) {
+        document.getElementById('badge-detail-icon').textContent = unlocked ? '⭐' : '🌟';
+        document.getElementById('badge-detail-icon').style.filter = unlocked ? 'none' : 'grayscale(1)';
+        document.getElementById('badge-detail-name').textContent = name;
+        document.getElementById('badge-detail-constellation').textContent = constellation;
+        document.getElementById('badge-detail-description').textContent = description;
+        document.getElementById('badge-detail-status').innerHTML = unlocked
+            ? '<span style="color: #4caf50;">✅ 獲得済み</span>'
+            : '<span class="text-muted">🔒 未獲得</span>';
+        document.getElementById('badge-detail-dialog').classList.remove('hidden');
+    }
+</script>
 {% endblock %}

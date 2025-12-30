@@ -1,20 +1,22 @@
 """
 Moon Tasker - Flask Application
-HTMX + Static CSS based web application
+HTMX + Static CSS based web application (Full Feature Version)
 """
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from datetime import datetime, timedelta
 import os
 import sys
+import json
 
 # Add moon_tasker to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from moon_tasker.database import Database
-from moon_tasker.models import Task, Playlist, MoonCycle
+from moon_tasker.models import Task, Playlist, MoonCycle, LifestyleSettings
 from moon_tasker.logic.creature_logic import CreatureSystem
 from moon_tasker.logic.moon_cycle import MoonCycleCalculator
 from moon_tasker.logic.badge_logic import BadgeSystem
+from moon_tasker.logic.schedule_ai import ScheduleOptimizer, GeneticScheduleOptimizer
 
 app = Flask(__name__, 
             template_folder='templates',
@@ -26,6 +28,30 @@ db = Database()
 creature_system = CreatureSystem(db)
 moon_calc = MoonCycleCalculator()
 badge_system = BadgeSystem(db)
+
+
+def get_creature_context(creature):
+    """生命体のコンテキスト情報を取得"""
+    if not creature or creature.status not in ["active", "completed"]:
+        return {
+            'creature': None,
+            'emotion': None,
+            'warning': None,
+            'creature_image': None
+        }
+    
+    creature_system.check_neglect()
+    emotion = creature_system.get_emotion_state(creature)
+    warning = creature_system.get_warning_message(creature)
+    image_filename = creature_system.get_image_filename(creature)
+    
+    return {
+        'creature': creature,
+        'emotion': emotion,
+        'warning': warning,
+        'creature_image': f'/static/images/creature/{image_filename}'
+    }
+
 
 # ============ ROUTES ============
 
@@ -42,20 +68,13 @@ def home():
     
     streak_data = db.get_streak_data()
     
-    emotion = None
-    warning = None
-    emoji = "🥚"
-    if creature and creature.status in ["active", "completed"]:
-        creature_system.check_neglect()
-        emotion = creature_system.get_emotion_state(creature)
-        warning = creature_system.get_warning_message(creature)
-        emoji = creature_system.get_creature_emoji(creature)
+    ctx = get_creature_context(creature)
     
     return render_template('pages/home.html',
-                         creature=creature,
-                         emotion=emotion,
-                         warning=warning,
-                         emoji=emoji,
+                         creature=ctx['creature'],
+                         emotion=ctx['emotion'],
+                         warning=ctx['warning'],
+                         creature_image=ctx['creature_image'],
                          moon_phase=moon_phase,
                          moon_emoji=moon_emoji,
                          pending_count=pending_count,
@@ -110,7 +129,31 @@ def complete_task():
     
     creature_system.on_task_completed(difficulty)
     
-    return jsonify({'success': True})
+    # バッジチェック
+    newly_unlocked = badge_system.check_all_badges()
+    
+    # 進化チェック
+    creature = creature_system.get_creature()
+    evolutions = []
+    if creature:
+        old_stage = creature.evolution_stage
+        creature_system._check_evolution(creature)
+        if creature.evolution_stage > old_stage:
+            evolutions.append({
+                'from': old_stage,
+                'to': creature.evolution_stage,
+                'name': creature_system.get_stage_name(creature)
+            })
+    
+    # プレゼントチェック
+    present = creature_system.last_present
+    
+    return jsonify({
+        'success': True,
+        'badges': [{'name': b.name, 'constellation': b.constellation_name} for b in newly_unlocked],
+        'evolutions': evolutions,
+        'present': {'name': present[0], 'emoji': present[1], 'desc': present[2]} if present else None
+    })
 
 
 @app.route('/playlist')
@@ -125,11 +168,14 @@ def playlist():
     if selected_id:
         selected_tasks = db.get_playlist_tasks(selected_id)
     
+    lifestyle = db.get_lifestyle_settings()
+    
     return render_template('pages/playlist.html',
                          playlists=playlists,
                          pending_tasks=pending_tasks,
                          selected_id=selected_id,
-                         selected_tasks=selected_tasks)
+                         selected_tasks=selected_tasks,
+                         lifestyle=lifestyle)
 
 
 @app.route('/playlist/create', methods=['POST'])
@@ -161,6 +207,73 @@ def remove_from_playlist(playlist_id, task_id):
     """タスクをプレイリストから削除"""
     db.remove_task_from_playlist(playlist_id, task_id)
     return redirect(url_for('playlist', selected=playlist_id))
+
+
+@app.route('/playlist/<int:playlist_id>/move/<int:task_id>/<direction>', methods=['POST'])
+def move_task_in_playlist(playlist_id, task_id, direction):
+    """プレイリスト内でタスクを移動"""
+    tasks = db.get_playlist_tasks(playlist_id)
+    task_ids = [t.id for t in tasks]
+    
+    if task_id in task_ids:
+        idx = task_ids.index(task_id)
+        if direction == 'up' and idx > 0:
+            task_ids[idx], task_ids[idx-1] = task_ids[idx-1], task_ids[idx]
+        elif direction == 'down' and idx < len(task_ids) - 1:
+            task_ids[idx], task_ids[idx+1] = task_ids[idx+1], task_ids[idx]
+        
+        db.reorder_playlist_tasks(playlist_id, task_ids)
+    
+    return redirect(url_for('playlist', selected=playlist_id))
+
+
+@app.route('/playlist/<int:playlist_id>/optimize', methods=['POST'])
+def optimize_playlist(playlist_id):
+    """AIでプレイリストを最適化"""
+    mode = request.form.get('mode', 'balanced')
+    time_limit = request.form.get('time_limit', type=int)
+    
+    tasks = db.get_playlist_tasks(playlist_id)
+    if not tasks:
+        return redirect(url_for('playlist', selected=playlist_id))
+    
+    optimizer = ScheduleOptimizer()
+    
+    if mode == 'balanced':
+        optimized = optimizer.optimize_balanced(tasks)
+    elif mode == 'time_limited' and time_limit:
+        optimized = optimizer.optimize_time_limited(tasks, time_limit)
+    elif mode == 'genetic':
+        genetic = GeneticScheduleOptimizer()
+        lifestyle = db.get_lifestyle_settings()
+        optimized = genetic.optimize(tasks, lifestyle)
+    else:
+        optimized = tasks
+    
+    task_ids = [t.id for t in optimized]
+    db.reorder_playlist_tasks(playlist_id, task_ids)
+    
+    return redirect(url_for('playlist', selected=playlist_id))
+
+
+@app.route('/lifestyle/save', methods=['POST'])
+def save_lifestyle():
+    """生活設定を保存"""
+    settings = LifestyleSettings(
+        wake_time=request.form.get('wake_time', '07:00'),
+        sleep_time=request.form.get('sleep_time', '23:00'),
+        min_sleep_hours=request.form.get('min_sleep_hours', 7, type=int),
+        bath_time=request.form.get('bath_time', '21:00'),
+        bath_duration=request.form.get('bath_duration', 30, type=int),
+        breakfast_time=request.form.get('breakfast_time', '07:30'),
+        lunch_time=request.form.get('lunch_time', '12:00'),
+        dinner_time=request.form.get('dinner_time', '19:00'),
+        meal_duration=request.form.get('meal_duration', 30, type=int)
+    )
+    db.save_lifestyle_settings(settings)
+    
+    selected_id = request.form.get('selected_playlist', type=int)
+    return redirect(url_for('playlist', selected=selected_id))
 
 
 @app.route('/task/create', methods=['POST'])
@@ -218,6 +331,10 @@ def moon_cycle():
         if total_count > 0:
             progress = (completed_count / total_count) * 100
     
+    # 利用可能なタスク（サイクルに追加可能）
+    all_tasks = db.get_all_tasks()
+    available_tasks = [t for t in all_tasks if t.status == "pending"]
+    
     return render_template('pages/moon_cycle.html',
                          active_cycle=active_cycle,
                          cycle_tasks=cycle_tasks,
@@ -226,7 +343,8 @@ def moon_cycle():
                          moon_phase=moon_phase,
                          progress=progress,
                          completed_count=completed_count,
-                         total_count=total_count)
+                         total_count=total_count,
+                         available_tasks=available_tasks)
 
 
 @app.route('/moon-cycle/create', methods=['POST'])
@@ -249,6 +367,34 @@ def create_moon_cycle():
     return redirect(url_for('moon_cycle'))
 
 
+@app.route('/moon-cycle/<int:cycle_id>/add-task', methods=['POST'])
+def add_task_to_cycle(cycle_id):
+    """サイクルにタスクを追加"""
+    task_ids = request.form.getlist('task_ids')
+    for task_id in task_ids:
+        db.add_task_to_cycle(cycle_id, int(task_id))
+    return redirect(url_for('moon_cycle'))
+
+
+@app.route('/moon-cycle/<int:cycle_id>/complete', methods=['POST'])
+def complete_moon_cycle(cycle_id):
+    """サイクル完了"""
+    self_rating = request.form.get('self_rating', 0, type=int)
+    good_points = request.form.get('good_points', '')
+    improvement_points = request.form.get('improvement_points', '')
+    next_actions = request.form.get('next_actions', '')
+    
+    db.complete_moon_cycle(cycle_id, self_rating, good_points, improvement_points, next_actions)
+    return redirect(url_for('moon_cycle'))
+
+
+@app.route('/moon-cycle/<int:cycle_id>/delete', methods=['POST'])
+def delete_moon_cycle(cycle_id):
+    """サイクル削除"""
+    db.delete_moon_cycle(cycle_id)
+    return redirect(url_for('moon_cycle'))
+
+
 @app.route('/collection')
 def collection():
     """星座図鑑画面"""
@@ -256,56 +402,84 @@ def collection():
         badges = db.get_all_badges()
         unlocked = [b for b in badges if b.unlocked_at]
         locked = [b for b in badges if not b.unlocked_at]
+        
+        # カテゴリ分け
+        categories = {}
+        for badge in badges:
+            cat = getattr(badge, 'category', 'その他') or 'その他'
+            if cat not in categories:
+                categories[cat] = []
+            categories[cat].append(badge)
     except Exception as e:
         print(f"Badge error: {e}")
         unlocked = []
         locked = []
+        categories = {}
     
     return render_template('pages/collection.html',
                          unlocked_badges=unlocked,
-                         locked_badges=locked)
+                         locked_badges=locked,
+                         categories=categories)
 
 
 @app.route('/creature')
 def creature():
     """生命体画面"""
     current_creature = creature_system.get_creature()
-    
-    if current_creature:
-        creature_system.check_neglect()
-        emotion = creature_system.get_emotion_state(current_creature)
-        warning = creature_system.get_warning_message(current_creature)
-        emoji = creature_system.get_creature_emoji(current_creature)
-    else:
-        emotion = None
-        warning = None
-        emoji = "🥚"
+    ctx = get_creature_context(current_creature)
     
     evolution_history = []
-    if current_creature:
+    if current_creature and current_creature.status in ["active", "completed"]:
         stage_info = {
-            1: ("🥚", "たまご"),
-            2: ("⭐", "ほしのあかちゃん"),
-            3: ("🌟", "ほし"),
-            4: ("🐰", "こうさぎ"),
-            5: ("🌙", "つき"),
+            1: ("stage1_content.png", "たまご"),
+            2: ("stage2_content.png", "ほしのあかちゃん"),
+            3: ("stage3_content.png", "ほし"),
+            4: ("stage4_content.png", "こうさぎ"),
+            5: ("stage5_content.png", "つき"),
         }
         for stage in range(1, current_creature.evolution_stage + 1):
-            emoji_s, name = stage_info.get(stage, ("?", "不明"))
-            evolution_history.append({'stage': stage, 'emoji': emoji_s, 'name': name})
+            img, name = stage_info.get(stage, ("stage1_content.png", "不明"))
+            evolution_history.append({
+                'stage': stage, 
+                'image': f'/static/images/creature/{img}', 
+                'name': name
+            })
+    
+    # クールダウン状態チェック
+    cooldown_remaining = None
+    if current_creature and current_creature.cooldown_until:
+        try:
+            if isinstance(current_creature.cooldown_until, str):
+                cooldown_date = datetime.fromisoformat(current_creature.cooldown_until)
+            else:
+                cooldown_date = current_creature.cooldown_until
+            
+            if cooldown_date > datetime.now():
+                cooldown_remaining = (cooldown_date - datetime.now()).days
+        except:
+            pass
     
     return render_template('pages/creature.html',
-                         creature=current_creature,
-                         emotion=emotion,
-                         warning=warning,
-                         emoji=emoji,
-                         evolution_history=evolution_history)
+                         creature=ctx['creature'],
+                         emotion=ctx['emotion'],
+                         warning=ctx['warning'],
+                         creature_image=ctx['creature_image'],
+                         evolution_history=evolution_history,
+                         cooldown_remaining=cooldown_remaining,
+                         raw_creature=current_creature)
 
 
 @app.route('/creature/start', methods=['POST'])
 def start_creature():
-    """生命体育成開始"""
+    """生命体育成開始（誓約確認後）"""
     name = request.form.get('name', 'ルナ').strip()
+    
+    # NGワードチェック（簡易版）
+    ng_words = ['バカ', 'アホ', '死', '殺']
+    for ng in ng_words:
+        if ng in name:
+            return redirect(url_for('creature'))
+    
     creature_system.start_new_creature(name)
     return redirect(url_for('creature'))
 

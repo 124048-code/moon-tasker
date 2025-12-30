@@ -13,9 +13,9 @@
         <select id="playlist-select" class="form-select" style="flex: 1;"
             onchange="window.location.href='/playlist?selected=' + this.value">
             <option value="">プレイリストを選択...</option>
-            {% for playlist in playlists %}
-            <option value="{{ playlist.id }}" {% if selected_id==playlist.id %}selected{% endif %}>
-                {{ playlist.name }}
+            {% for pl in playlists %}
+            <option value="{{ pl.id }}" {% if selected_id==pl.id %}selected{% endif %}>
+                {{ pl.name }}
             </option>
             {% endfor %}
         </select>
@@ -37,7 +37,11 @@
 <!-- プレイリスト内タスク -->
 {% if selected_id %}
 <div class="card">
-    <h2 class="section-title">📋 プレイリストの内容</h2>
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="section-title" style="margin-bottom: 0;">📋 プレイリストの内容</h2>
+        <button onclick="document.getElementById('ai-dialog').classList.remove('hidden')" class="btn btn-primary"
+            style="padding: 8px 16px;">🤖 AI最適化</button>
+    </div>
 
     {% if selected_tasks|length == 0 %}
     <p class="text-muted">タスクがありません。下から追加してください。</p>
@@ -45,8 +49,24 @@
     {% for task in selected_tasks %}
     <div class="list-item">
         <span class="text-muted" style="width: 24px;">{{ loop.index }}.</span>
+
+        <!-- 順序変更ボタン -->
+        <div class="flex flex-col gap-1" style="margin-right: 8px;">
+            {% if not loop.first %}
+            <form action="/playlist/{{ selected_id }}/move/{{ task.id }}/up" method="post" style="display: inline;">
+                <button type="submit" class="action-btn" style="font-size: 12px;">▲</button>
+            </form>
+            {% endif %}
+            {% if not loop.last %}
+            <form action="/playlist/{{ selected_id }}/move/{{ task.id }}/down" method="post" style="display: inline;">
+                <button type="submit" class="action-btn" style="font-size: 12px;">▼</button>
+            </form>
+            {% endif %}
+        </div>
+
         <span class="title">{{ task.title }}</span>
         <span class="meta">{{ task.duration }}分</span>
+        <span class="meta">{{ '⭐' * task.difficulty }}</span>
         <form action="/playlist/{{ selected_id }}/remove/{{ task.id }}" method="post" style="display: inline;">
             <button type="submit" class="action-btn" style="color: #ff9800;">✕</button>
         </form>
@@ -55,6 +75,105 @@
     {% endif %}
 </div>
 {% endif %}
+
+<!-- AI最適化ダイアログ -->
+<div id="ai-dialog" class="dialog-overlay hidden">
+    <div class="card dialog-content" style="padding: 32px;">
+        <h2 class="section-title">🤖 AI最適化</h2>
+        <p class="text-muted text-sm mb-6">プレイリストのタスク順序をAIで最適化します</p>
+
+        <form action="/playlist/{{ selected_id }}/optimize" method="post" id="optimize-form">
+            <div class="mb-4">
+                <label class="flex items-center gap-2 mb-2">
+                    <input type="radio" name="mode" value="balanced" checked>
+                    <span>バランス最適化（難易度を交互に配置）</span>
+                </label>
+                <label class="flex items-center gap-2 mb-2">
+                    <input type="radio" name="mode" value="time_limited">
+                    <span>時間制限最適化</span>
+                </label>
+                <div id="time-limit-input" class="hidden ml-6 mt-2">
+                    <input type="number" name="time_limit" placeholder="制限時間（分）" class="form-input"
+                        style="width: 150px;">
+                </div>
+                <label class="flex items-center gap-2">
+                    <input type="radio" name="mode" value="genetic">
+                    <span>遺伝的アルゴリズム最適化</span>
+                </label>
+            </div>
+        </form>
+
+        <div class="flex gap-2 mt-6">
+            <button onclick="document.getElementById('optimize-form').submit()" class="btn btn-success"
+                style="flex: 1;">✨ 最適化実行</button>
+            <button onclick="document.getElementById('ai-dialog').classList.add('hidden')"
+                class="btn btn-secondary">キャンセル</button>
+        </div>
+
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 24px 0;">
+
+        <button
+            onclick="document.getElementById('ai-dialog').classList.add('hidden'); document.getElementById('lifestyle-dialog').classList.remove('hidden');"
+            class="btn btn-secondary w-full">⚙️ 生活設定を開く</button>
+    </div>
+</div>
+
+<!-- 生活設定ダイアログ -->
+<div id="lifestyle-dialog" class="dialog-overlay hidden">
+    <div class="card dialog-content" style="padding: 32px; max-width: 500px;">
+        <h2 class="section-title">⚙️ 生活時間設定</h2>
+        <p class="text-muted text-sm mb-6">AI最適化で考慮する生活リズムを設定</p>
+
+        <form action="/lifestyle/save" method="post">
+            <input type="hidden" name="selected_playlist" value="{{ selected_id }}">
+
+            <div class="form-row mb-4">
+                <div class="form-group">
+                    <label class="form-label">起床時間</label>
+                    <input type="time" name="wake_time" value="{{ lifestyle.wake_time if lifestyle else '07:00' }}"
+                        class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">就寝時間</label>
+                    <input type="time" name="sleep_time" value="{{ lifestyle.sleep_time if lifestyle else '23:00' }}"
+                        class="form-input">
+                </div>
+            </div>
+
+            <div class="form-row mb-4">
+                <div class="form-group">
+                    <label class="form-label">朝食</label>
+                    <input type="time" name="breakfast_time"
+                        value="{{ lifestyle.breakfast_time if lifestyle else '07:30' }}" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">昼食</label>
+                    <input type="time" name="lunch_time" value="{{ lifestyle.lunch_time if lifestyle else '12:00' }}"
+                        class="form-input">
+                </div>
+            </div>
+
+            <div class="form-row mb-4">
+                <div class="form-group">
+                    <label class="form-label">夕食</label>
+                    <input type="time" name="dinner_time" value="{{ lifestyle.dinner_time if lifestyle else '19:00' }}"
+                        class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">入浴</label>
+                    <input type="time" name="bath_time" value="{{ lifestyle.bath_time if lifestyle else '21:00' }}"
+                        class="form-input">
+                </div>
+            </div>
+
+            <div class="flex gap-2 mt-6">
+                <button type="submit" class="btn btn-success" style="flex: 1;">💾 保存</button>
+                <button type="button" onclick="document.getElementById('lifestyle-dialog').classList.add('hidden')"
+                    class="btn btn-secondary">キャンセル</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- タスク作成 -->
 <div class="card">
@@ -105,6 +224,7 @@
     <div class="list-item">
         <span class="title">{{ task.title }}</span>
         <span class="meta">{{ task.duration }}分 + {{ task.break_duration }}分休憩</span>
+        <span class="meta">{{ '⭐' * task.difficulty }}</span>
         <div class="actions">
             {% if selected_id %}
             <form action="/playlist/{{ selected_id }}/add/{{ task.id }}" method="post" style="display: inline;">
@@ -120,4 +240,17 @@
     {% endfor %}
     {% endif %}
 </div>
+
+<script>
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+        radio.addEventListener('change', function () {
+            const timeLimitInput = document.getElementById('time-limit-input');
+            if (this.value === 'time_limited') {
+                timeLimitInput.classList.remove('hidden');
+            } else {
+                timeLimitInput.classList.add('hidden');
+            }
+        });
+    });
+</script>
 {% endblock %}

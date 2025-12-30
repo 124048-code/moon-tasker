@@ -29,7 +29,7 @@
             style="width: {{ progress }}%;"></div>
     </div>
 
-    <p class="mt-4 {% if progress >= 100 %}text-green{% elif progress >= 50 %}text-blue{% else %}text-orange{% endif %}"
+    <p class="mt-4"
         style="{% if progress >= 100 %}color: #4caf50{% elif progress >= 50 %}color: #64b5f6{% else %}color: #ff9800{% endif %};">
         {{ '%.1f'|format(progress) }}% -
         {% if progress >= 100 %}目標達成！ 🎉{% elif progress >= 50 %}順調に進行中{% else %}頑張りましょう{% endif %}
@@ -38,7 +38,11 @@
 
 <!-- サイクルタスク -->
 <div class="card">
-    <h2 class="section-title">📋 設定タスク</h2>
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="section-title" style="margin-bottom: 0;">📋 設定タスク</h2>
+        <button onclick="document.getElementById('add-task-dialog').classList.remove('hidden')" class="btn btn-primary"
+            style="padding: 8px 16px;">➕ タスク追加</button>
+    </div>
 
     {% if cycle_tasks|length == 0 %}
     <p class="text-muted">タスクが設定されていません</p>
@@ -66,6 +70,95 @@
     <p>{{ active_cycle.goal or '（目標未設定）' }}</p>
 </div>
 
+<!-- 操作ボタン -->
+<div class="flex gap-4">
+    <button onclick="document.getElementById('complete-dialog').classList.remove('hidden')" class="btn btn-success"
+        style="flex: 1;">✅ サイクル完了</button>
+    <form action="/moon-cycle/{{ active_cycle.id }}/delete" method="post" style="display: inline;">
+        <button type="submit" onclick="return confirm('このサイクルを削除しますか？')" class="btn btn-danger">🗑️ 削除</button>
+    </form>
+</div>
+
+<!-- タスク追加ダイアログ -->
+<div id="add-task-dialog" class="dialog-overlay hidden">
+    <div class="card dialog-content" style="padding: 32px; max-width: 500px;">
+        <h2 class="section-title">➕ タスクを追加</h2>
+        <p class="text-muted text-sm mb-4">サイクルに追加するタスクを選択してください</p>
+
+        <form action="/moon-cycle/{{ active_cycle.id }}/add-task" method="post">
+            <div style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;">
+                {% if available_tasks|length == 0 %}
+                <p class="text-muted">利用可能なタスクがありません</p>
+                {% else %}
+                {% for task in available_tasks %}
+                <label class="flex items-center gap-3 p-3"
+                    style="background: rgba(10,10,26,0.5); border-radius: 8px; margin-bottom: 8px; cursor: pointer;">
+                    <input type="checkbox" name="task_ids" value="{{ task.id }}">
+                    <span style="flex: 1;">{{ task.title }}</span>
+                    <span class="text-muted text-sm">{{ task.duration }}分</span>
+                </label>
+                {% endfor %}
+                {% endif %}
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-success" style="flex: 1;">追加</button>
+                <button type="button" onclick="document.getElementById('add-task-dialog').classList.add('hidden')"
+                    class="btn btn-secondary">キャンセル</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 完了ダイアログ（PDCA Check/Act） -->
+<div id="complete-dialog" class="dialog-overlay hidden">
+    <div class="card dialog-content" style="padding: 32px; max-width: 500px;">
+        <h2 class="section-title">✅ サイクル完了 - 振り返り</h2>
+
+        <form action="/moon-cycle/{{ active_cycle.id }}/complete" method="post">
+            <!-- 自己評価 -->
+            <div class="form-group mb-4">
+                <label class="form-label">自己評価</label>
+                <div class="flex gap-2 justify-center">
+                    {% for i in range(1, 6) %}
+                    <label style="cursor: pointer;">
+                        <input type="radio" name="self_rating" value="{{ i }}" {% if i==3 %}checked{% endif %}
+                            style="display: none;">
+                        <span class="text-2xl" style="opacity: 0.5;"
+                            onclick="this.style.opacity='1'; this.parentElement.querySelectorAll('input')[0].checked=true;">
+                            {% if i <= 3 %}⭐{% else %}🌟{% endif %} </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- うまくいった点 -->
+            <div class="form-group mb-4">
+                <label class="form-label">💚 うまくいった点（Check）</label>
+                <textarea name="good_points" rows="3" placeholder="良かったことを振り返りましょう..." class="form-textarea"></textarea>
+            </div>
+
+            <!-- 改善が必要な点 -->
+            <div class="form-group mb-4">
+                <label class="form-label">💛 改善が必要な点（Check）</label>
+                <textarea name="improvement_points" rows="3" placeholder="次はこうしたいな..." class="form-textarea"></textarea>
+            </div>
+
+            <!-- 次のアクション -->
+            <div class="form-group mb-4">
+                <label class="form-label">🚀 次のサイクルで試すこと（Act）</label>
+                <textarea name="next_actions" rows="3" placeholder="次のサイクルで具体的に何をする？" class="form-textarea"></textarea>
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-success" style="flex: 1;">完了する</button>
+                <button type="button" onclick="document.getElementById('complete-dialog').classList.add('hidden')"
+                    class="btn btn-secondary">キャンセル</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% else %}
 <!-- 新規サイクル作成 -->
 <div class="card">
@@ -84,7 +177,7 @@
         </div>
 
         <div class="form-group mb-4">
-            <label class="form-label">目標の説明</label>
+            <label class="form-label">目標の説明（Plan）</label>
             <textarea name="goal" rows="3" placeholder="この期間で達成したい目標を入力..." class="form-textarea"></textarea>
         </div>
 
@@ -102,7 +195,12 @@
     <div class="list-item" style="flex-direction: column; align-items: stretch;">
         <div class="flex justify-between items-center">
             <span style="font-weight: 500;">{{ cycle.cycle_start }} ～ {{ cycle.cycle_end }}</span>
-            <span class="text-muted text-sm">{{ cycle.completed_task_count }}/{{ cycle.target_task_count }}</span>
+            <span class="text-muted text-sm">
+                {{ cycle.completed_task_count }}/{{ cycle.target_task_count }}
+                {% if cycle.self_rating > 0 %}
+                <span style="color: #ffc107; margin-left: 8px;">{{ '⭐' * cycle.self_rating }}</span>
+                {% endif %}
+            </span>
         </div>
         {% if cycle.goal %}
         <p class="text-muted text-sm mt-2">{{ cycle.goal[:50] }}{% if cycle.goal|length > 50 %}...{% endif %}</p>

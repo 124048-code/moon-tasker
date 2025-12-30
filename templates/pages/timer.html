@@ -53,7 +53,7 @@
     <button id="pause-btn" onclick="togglePause()" class="btn btn-secondary hidden" style="padding: 16px 32px;">
         ⏸️ 一時停止
     </button>
-    <button id="stop-btn" onclick="confirmStop()" class="btn btn-danger hidden" style="padding: 16px 32px;">
+    <button id="stop-btn" onclick="showStopConfirm()" class="btn btn-danger hidden" style="padding: 16px 32px;">
         ⏹️ 中止
     </button>
 </div>
@@ -64,7 +64,56 @@
         <p style="font-size: 64px; margin-bottom: 16px;">🎉</p>
         <h2 class="page-title" style="margin-bottom: 16px;">達成しました！</h2>
         <p id="complete-message" style="font-size: 18px; margin-bottom: 24px;"></p>
+
+        <!-- バッジ獲得表示 -->
+        <div id="badges-earned" class="hidden mb-4">
+            <h3 style="color: #ffc107; margin-bottom: 12px;">🏆 称号獲得！</h3>
+            <div id="badges-list"></div>
+        </div>
+
+        <!-- 進化表示 -->
+        <div id="evolution-earned" class="hidden mb-4">
+            <h3 style="color: #7c4dff; margin-bottom: 12px;">🌟 進化しました！</h3>
+            <div id="evolution-info"></div>
+        </div>
+
+        <!-- プレゼント表示 -->
+        <div id="present-earned" class="hidden mb-4">
+            <h3 style="color: #ff6b9d; margin-bottom: 12px;">🎁 プレゼント！</h3>
+            <div id="present-info"></div>
+        </div>
+
         <button onclick="closeCompleteDialog()" class="btn btn-success">🏠 ホームに戻る</button>
+    </div>
+</div>
+
+<!-- 中止確認ダイアログ（2段階警告） -->
+<div id="stop-dialog" class="dialog-overlay hidden">
+    <div class="card dialog-content text-center" style="padding: 32px; max-width: 400px;">
+        <div id="stop-step1">
+            <p style="font-size: 48px; margin-bottom: 16px;">😢</p>
+            <h2 class="section-title">本当に中止しますか？</h2>
+            <p class="text-muted mb-6">生命体が悲しみます...</p>
+            <div class="flex gap-2">
+                <button onclick="showSecondWarning()" class="btn btn-danger" style="flex: 1;">中止する</button>
+                <button onclick="document.getElementById('stop-dialog').classList.add('hidden')" class="btn btn-success"
+                    style="flex: 1;">続ける</button>
+            </div>
+        </div>
+        <div id="stop-step2" class="hidden">
+            <p style="font-size: 48px; margin-bottom: 16px;">⚠️</p>
+            <h2 class="section-title" style="color: #f44336;">最終確認</h2>
+            <p class="mb-6" style="color: #ff9800;">
+                途中で諦めると、<br>次も諦めやすくなります。<br><br>
+                それでも中止しますか？
+            </p>
+            <div class="flex gap-2">
+                <button onclick="actuallyStop()" class="btn btn-danger" style="flex: 1;">本当に中止</button>
+                <button
+                    onclick="document.getElementById('stop-dialog').classList.add('hidden'); document.getElementById('stop-step1').classList.remove('hidden'); document.getElementById('stop-step2').classList.add('hidden');"
+                    class="btn btn-success" style="flex: 1;">やっぱり続ける</button>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -119,7 +168,7 @@
         startBtn.classList.add('hidden');
         pauseBtn.classList.remove('hidden');
         stopBtn.classList.remove('hidden');
-        timerCard.classList.add('active');
+        timerCard.classList.add('timer-active');
         startTask();
     }
 
@@ -181,30 +230,69 @@
         pauseBtn.textContent = timerState.isPaused ? '▶️ 再開' : '⏸️ 一時停止';
     }
 
-    function confirmStop() {
-        if (confirm('本当に中止しますか？')) {
-            stopTimer();
-        }
+    function showStopConfirm() {
+        document.getElementById('stop-dialog').classList.remove('hidden');
     }
 
-    function stopTimer() {
+    function showSecondWarning() {
+        document.getElementById('stop-step1').classList.add('hidden');
+        document.getElementById('stop-step2').classList.remove('hidden');
+    }
+
+    function actuallyStop() {
         timerState.isRunning = false;
         clearInterval(timerState.intervalId);
+        document.getElementById('stop-dialog').classList.add('hidden');
+        document.getElementById('stop-step1').classList.remove('hidden');
+        document.getElementById('stop-step2').classList.add('hidden');
         resetUI();
     }
 
+    let completedResults = { badges: [], evolutions: [], present: null };
+
     async function completeTask(task) {
-        await fetch('/timer/complete', {
+        const response = await fetch('/timer/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `task_id=${task.id}&difficulty=${task.difficulty}`
         });
+        const result = await response.json();
+
+        // 結果を蓄積
+        if (result.badges) completedResults.badges.push(...result.badges);
+        if (result.evolutions) completedResults.evolutions.push(...result.evolutions);
+        if (result.present) completedResults.present = result.present;
     }
 
     function completePlaylist() {
         timerState.isRunning = false;
         clearInterval(timerState.intervalId);
-        document.getElementById('complete-message').textContent = `✨ ${timerState.tasks.length}個のタスクを完了しました！`;
+
+        document.getElementById('complete-message').textContent =
+            `✨ ${timerState.tasks.length}個のタスクを完了しました！`;
+
+        // バッジ表示
+        if (completedResults.badges.length > 0) {
+            document.getElementById('badges-earned').classList.remove('hidden');
+            document.getElementById('badges-list').innerHTML = completedResults.badges
+                .map(b => `<p style="color: #ffc107;">⭐ ${b.name} (${b.constellation})</p>`).join('');
+        }
+
+        // 進化表示
+        if (completedResults.evolutions.length > 0) {
+            document.getElementById('evolution-earned').classList.remove('hidden');
+            document.getElementById('evolution-info').innerHTML = completedResults.evolutions
+                .map(e => `<p style="color: #7c4dff;">Lv.${e.from} → Lv.${e.to} ${e.name}に進化！</p>`).join('');
+        }
+
+        // プレゼント表示
+        if (completedResults.present) {
+            document.getElementById('present-earned').classList.remove('hidden');
+            document.getElementById('present-info').innerHTML =
+                `<p>${completedResults.present.emoji} ${completedResults.present.name}</p>
+             <p class="text-muted text-sm">${completedResults.present.desc}</p>`;
+        }
+
         document.getElementById('complete-dialog').classList.remove('hidden');
     }
 
@@ -221,8 +309,9 @@
         startBtn.classList.remove('hidden');
         pauseBtn.classList.add('hidden');
         stopBtn.classList.add('hidden');
-        timerCard.classList.remove('active');
+        timerCard.classList.remove('timer-active');
         statusText.textContent = '中止しました';
+        completedResults = { badges: [], evolutions: [], present: null };
     }
 
     {% if request.args.get('quick') %}
