@@ -212,7 +212,7 @@ class HomeView(ft.Column):
     
     def _start_quick_timer(self, e):
         """クイックスタートタイマーを開始"""
-        if self.page and hasattr(self._page, 'change_view'):
+        if self._page and hasattr(self._page, 'change_view'):
             # タイマー画面に移動し、クイックモードフラグを設定
             self._page.quick_start_mode = True
             if hasattr(self._page, 'navigation_rail'):

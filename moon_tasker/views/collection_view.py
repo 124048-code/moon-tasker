@@ -166,7 +166,7 @@ class CollectionView(ft.Column):
     
     def _show_badge_detail(self, badge):
         """バッジ詳細ダイアログを表示"""
-        if not self.page:
+        if not self._page:
             return
         
         rarity = self.badge_system.get_rarity_from_condition(badge)
@@ -227,7 +227,7 @@ class CollectionView(ft.Column):
     
     def _show_unlock_animation(self, badges):
         """称号獲得演出ダイアログ"""
-        if not self.page:
+        if not self._page:
             return
         
         badge = badges[0]  # 最初の1つを表示
