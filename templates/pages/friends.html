@@ -3,135 +3,107 @@
 {% block title %}フレンド - Moon Tasker{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-6">
-    <h1 class="text-3xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
-        フレンド 👥
-    </h1>
+<h1 class="page-title">フレンド 👥</h1>
 
-    {% if is_logged_in %}
-    <!-- ログイン済み -->
+{% if is_logged_in %}
+<!-- ログイン済み -->
 
-    <!-- プロフィール -->
-    <div class="glass-card p-6">
-        <h2 class="text-lg font-bold mb-4">👤 あなたのプロフィール</h2>
-
-        {% if user_profile %}
-        <div class="flex items-center gap-4">
-            <div
-                class="w-16 h-16 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-3xl shadow-lg">
-                👤
-            </div>
-            <div>
-                <p class="font-bold text-lg">{{ user_profile.display_name or 'ユーザー' }}</p>
-                <p class="text-gray-400 text-sm">ID: {{ user_profile.friend_code or '未設定' }}</p>
-            </div>
+<div class="card">
+    <h2 class="section-title">👤 あなたのプロフィール</h2>
+    {% if user_profile %}
+    <div class="flex items-center gap-4">
+        <div
+            style="width: 64px; height: 64px; background: linear-gradient(135deg, #7c4dff, #ff6b9d); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px;">
+            👤
         </div>
-        {% else %}
-        <p class="text-gray-400">プロフィールを読み込み中...</p>
-        {% endif %}
-    </div>
-
-    <!-- フレンド一覧 -->
-    <div class="glass-card p-6">
-        <h2 class="text-lg font-bold mb-4">👥 フレンド一覧</h2>
-
-        {% if friends_list|length == 0 %}
-        <div class="text-center py-8">
-            <span class="text-5xl mb-4 block">👥</span>
-            <p class="text-gray-400">まだフレンドがいません</p>
-            <p class="text-gray-500 text-sm mt-2">フレンドコードを共有してフレンドを追加しましょう！</p>
+        <div>
+            <p style="font-weight: 600; font-size: 18px;">{{ user_profile.display_name or 'ユーザー' }}</p>
+            <p class="text-muted text-sm">ID: {{ user_profile.friend_code or '未設定' }}</p>
         </div>
-        {% else %}
-        <div class="space-y-3">
-            {% for friend in friends_list %}
-            <div class="flex items-center gap-4 bg-surface/50 rounded-xl p-4 border border-white/5">
-                <div
-                    class="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-400 rounded-full flex items-center justify-center text-2xl">
-                    👤
-                </div>
-                <div class="flex-1">
-                    <p class="font-bold">{{ friend.display_name or 'フレンド' }}</p>
-                    <p class="text-gray-400 text-sm">累計タスク: {{ friend.total_tasks or 0 }}</p>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- フレンド追加 -->
-    <div class="glass-card p-6">
-        <h2 class="text-lg font-bold mb-4">➕ フレンドを追加</h2>
-
-        <form action="/friends/add" method="post" class="flex gap-4">
-            <input type="text" name="friend_code" placeholder="フレンドコードを入力"
-                class="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
-            <button type="submit" class="btn-primary text-white font-bold py-3 px-6 rounded-xl">
-                追加
-            </button>
-        </form>
-    </div>
-
-    <!-- ログアウト -->
-    <div class="text-center">
-        <form action="/friends/logout" method="post">
-            <button type="submit" class="text-gray-400 hover:text-white text-sm transition-colors">
-                ログアウト
-            </button>
-        </form>
-    </div>
-
-    {% else %}
-    <!-- 未ログイン -->
-    <div class="glass-card p-10 text-center">
-        <span class="text-6xl block mb-4">👥</span>
-        <h2 class="text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
-            フレンド機能を使う
-        </h2>
-        <p class="text-gray-400 mt-3">ログインしてフレンドと進捗を共有しましょう！</p>
-    </div>
-
-    <!-- ログインフォーム -->
-    <div class="glass-card p-6">
-        <h2 class="text-lg font-bold mb-4">🔐 ログイン</h2>
-
-        <form action="/friends/login" method="post" class="space-y-4">
-            <input type="email" name="email" placeholder="メールアドレス" required
-                class="w-full bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
-            <input type="password" name="password" placeholder="パスワード" required
-                class="w-full bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
-            <button type="submit" class="w-full btn-primary text-white font-bold py-3 rounded-xl">
-                ログイン
-            </button>
-        </form>
-
-        <div class="relative my-6">
-            <div class="absolute inset-0 flex items-center">
-                <div class="w-full border-t border-white/10"></div>
-            </div>
-            <div class="relative flex justify-center text-sm">
-                <span class="px-4 bg-surface-card text-gray-400">または</span>
-            </div>
-        </div>
-
-        <form action="/friends/signup" method="post" class="space-y-4">
-            <input type="email" name="email" placeholder="メールアドレス" required
-                class="w-full bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
-            <input type="password" name="password" placeholder="パスワード（6文字以上・英数混合）" required
-                class="w-full bg-surface border border-white/10 rounded-xl px-4 py-3 text-white">
-            <button type="submit"
-                class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold py-3 rounded-xl hover:shadow-lg hover:shadow-cyan-500/30 transition-all">
-                新規登録
-            </button>
-        </form>
-    </div>
-
-    <!-- オフラインモード -->
-    <div class="text-center">
-        <a href="/" class="text-gray-400 hover:text-white text-sm transition-colors">
-            ← オフラインで続ける
-        </a>
     </div>
     {% endif %}
 </div>
+
+<div class="card">
+    <h2 class="section-title">👥 フレンド一覧</h2>
+
+    {% if friends_list|length == 0 %}
+    <div class="text-center" style="padding: 32px;">
+        <span style="font-size: 48px;">👥</span>
+        <p class="text-muted mt-4">まだフレンドがいません</p>
+    </div>
+    {% else %}
+    {% for friend in friends_list %}
+    <div class="list-item">
+        <div
+            style="width: 48px; height: 48px; background: linear-gradient(135deg, #00bcd4, #64b5f6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+            👤
+        </div>
+        <div style="flex: 1;">
+            <p style="font-weight: 500;">{{ friend.display_name or 'フレンド' }}</p>
+            <p class="text-muted text-sm">累計タスク: {{ friend.total_tasks or 0 }}</p>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2 class="section-title">➕ フレンドを追加</h2>
+    <form action="/friends/add" method="post" class="flex gap-4">
+        <input type="text" name="friend_code" placeholder="フレンドコードを入力" class="form-input" style="flex: 1;">
+        <button type="submit" class="btn btn-primary">追加</button>
+    </form>
+</div>
+
+<div class="text-center">
+    <form action="/friends/logout" method="post">
+        <button type="submit" class="text-muted" style="background: none; border: none; cursor: pointer;">ログアウト</button>
+    </form>
+</div>
+
+{% else %}
+<!-- 未ログイン -->
+
+<div class="card text-center" style="padding: 48px;">
+    <span style="font-size: 64px;">👥</span>
+    <h2 class="page-title mt-4">フレンド機能を使う</h2>
+    <p class="text-muted mt-2">ログインしてフレンドと進捗を共有しましょう！</p>
+</div>
+
+<div class="card">
+    <h2 class="section-title">🔐 ログイン</h2>
+
+    <form action="/friends/login" method="post">
+        <div class="form-group">
+            <input type="email" name="email" placeholder="メールアドレス" required class="form-input">
+        </div>
+        <div class="form-group">
+            <input type="password" name="password" placeholder="パスワード" required class="form-input">
+        </div>
+        <button type="submit" class="btn btn-primary w-full">ログイン</button>
+    </form>
+
+    <div style="position: relative; margin: 24px 0;">
+        <div style="border-top: 1px solid var(--color-border); position: absolute; inset: 0; top: 50%;"></div>
+        <div style="position: relative; text-align: center;">
+            <span class="text-muted text-sm" style="background: rgba(30, 58, 95, 0.6); padding: 0 16px;">または</span>
+        </div>
+    </div>
+
+    <form action="/friends/signup" method="post">
+        <div class="form-group">
+            <input type="email" name="email" placeholder="メールアドレス" required class="form-input">
+        </div>
+        <div class="form-group">
+            <input type="password" name="password" placeholder="パスワード（6文字以上）" required class="form-input">
+        </div>
+        <button type="submit" class="btn btn-secondary w-full">新規登録</button>
+    </form>
+</div>
+
+<div class="text-center">
+    <a href="/" class="text-muted">← オフラインで続ける</a>
+</div>
+{% endif %}
 {% endblock %}

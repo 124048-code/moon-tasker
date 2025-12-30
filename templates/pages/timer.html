@@ -3,89 +3,74 @@
 {% block title %}タイマー - Moon Tasker{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-6">
-    <h1 class="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-        タイマー ⏱️
-    </h1>
+<h1 class="page-title">タイマー ⏱️</h1>
 
-    <!-- タイマー表示 -->
-    <div class="glass-card p-10 text-center" id="timer-card">
-        <p id="progress-text" class="text-accent-blue text-lg mb-2 font-medium"></p>
-        <p id="timer-display" class="text-8xl font-bold timer-display text-white mb-4">00:00</p>
-        <p id="status-text" class="text-gray-300 text-xl">プレイリストを選択してください</p>
-        <p id="next-task-text" class="text-gray-500 mt-2"></p>
-        <p id="end-time-text" class="text-accent-gold mt-2"></p>
+<!-- タイマー表示 -->
+<div class="card text-center" id="timer-card" style="padding: 48px 24px;">
+    <p id="progress-text" style="color: #64b5f6; font-size: 18px; margin-bottom: 8px; font-weight: 500;"></p>
+    <p id="timer-display" class="timer-display">00:00</p>
+    <p id="status-text" style="font-size: 20px; margin-top: 16px; color: #ccc;">プレイリストを選択してください</p>
+    <p id="next-task-text" class="text-muted mt-2"></p>
+    <p id="end-time-text" style="color: #ffc107; margin-top: 8px;"></p>
+</div>
+
+<!-- プレイリスト選択 -->
+<div class="card" id="playlist-selection">
+    <h2 class="section-title">📋 プレイリスト選択</h2>
+    <p class="text-muted text-sm mb-4">選択したプレイリストのタスクを順番に実行します</p>
+
+    <select id="playlist-dropdown" class="form-select mb-4">
+        <option value="">プレイリストを選択...</option>
+        {% for playlist in playlists %}
+        <option value="{{ playlist.id }}">{{ playlist.name }}</option>
+        {% endfor %}
+    </select>
+
+    {% if playlists|length == 0 %}
+    <div class="card text-center" style="background: rgba(255, 193, 7, 0.1); border-color: rgba(255, 193, 7, 0.3);">
+        <span style="font-size: 48px;">📝</span>
+        <p style="font-weight: 600; margin-top: 12px;">プレイリストがありません</p>
+        <p class="text-muted text-sm mt-2">まずプレイリストを作成しましょう！</p>
+        <a href="/playlist" class="btn btn-warning mt-4">プレイリストを作成</a>
     </div>
+    {% endif %}
+</div>
 
-    <!-- プレイリスト選択 -->
-    <div class="glass-card p-6" id="playlist-selection">
-        <h2 class="text-lg font-bold mb-2">📋 プレイリスト選択</h2>
-        <p class="text-gray-400 text-sm mb-4">選択したプレイリストのタスクを順番に実行します</p>
-
-        <select id="playlist-dropdown"
-            class="w-full bg-surface border border-white/10 rounded-xl px-4 py-3 text-white mb-4 focus:ring-2 focus:ring-primary">
-            <option value="">プレイリストを選択...</option>
-            {% for playlist in playlists %}
-            <option value="{{ playlist.id }}">{{ playlist.name }}</option>
-            {% endfor %}
-        </select>
-
-        {% if playlists|length == 0 %}
-        <div class="glass-card bg-yellow-500/10 border border-yellow-500/30 p-6 text-center">
-            <span class="text-4xl">📝</span>
-            <p class="font-bold mt-3">プレイリストがありません</p>
-            <p class="text-gray-400 text-sm mt-1">まずプレイリストを作成しましょう！</p>
-            <a href="/playlist" class="inline-block mt-4 btn-warning font-bold py-2 px-6 rounded-xl">
-                プレイリストを作成
-            </a>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- スケジュール表示 -->
-    <div class="glass-card p-6">
-        <h2 class="text-lg font-bold mb-4">📅 スケジュール</h2>
-        <div id="schedule-container">
-            <p class="text-gray-400">プレイリストを選択すると表示されます</p>
-        </div>
-    </div>
-
-    <!-- コントロールボタン -->
-    <div class="flex justify-center gap-4" id="control-buttons">
-        <button id="start-btn" onclick="startTimer()"
-            class="btn-success text-white font-bold py-4 px-10 rounded-xl text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            disabled>
-            ▶️ 開始
-        </button>
-        <button id="pause-btn" onclick="togglePause()"
-            class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-4 px-8 rounded-xl hidden transition-colors">
-            ⏸️ 一時停止
-        </button>
-        <button id="stop-btn" onclick="confirmStop()"
-            class="bg-red-600 hover:bg-red-500 text-white font-bold py-4 px-8 rounded-xl hidden transition-colors">
-            ⏹️ 中止
-        </button>
+<!-- スケジュール表示 -->
+<div class="card">
+    <h2 class="section-title">📅 スケジュール</h2>
+    <div id="schedule-container">
+        <p class="text-muted">プレイリストを選択すると表示されます</p>
     </div>
 </div>
 
+<!-- コントロールボタン -->
+<div class="flex justify-center gap-4 mt-6" id="control-buttons">
+    <button id="start-btn" onclick="startTimer()" class="btn btn-success" disabled
+        style="padding: 16px 40px; font-size: 16px;">
+        ▶️ 開始
+    </button>
+    <button id="pause-btn" onclick="togglePause()" class="btn btn-secondary hidden" style="padding: 16px 32px;">
+        ⏸️ 一時停止
+    </button>
+    <button id="stop-btn" onclick="confirmStop()" class="btn btn-danger hidden" style="padding: 16px 32px;">
+        ⏹️ 中止
+    </button>
+</div>
+
 <!-- 完了ダイアログ -->
-<div id="complete-dialog"
-    class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden z-50">
-    <div class="glass-card p-10 text-center max-w-md">
-        <p class="text-6xl mb-4">🎉</p>
-        <h2 class="text-2xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
-            達成しました！</h2>
-        <p id="complete-message" class="text-lg mb-6 text-gray-300"></p>
-        <button onclick="closeCompleteDialog()" class="btn-success text-white font-bold py-3 px-8 rounded-xl">
-            🏠 ホームに戻る
-        </button>
+<div id="complete-dialog" class="dialog-overlay hidden">
+    <div class="card dialog-content text-center" style="padding: 40px;">
+        <p style="font-size: 64px; margin-bottom: 16px;">🎉</p>
+        <h2 class="page-title" style="margin-bottom: 16px;">達成しました！</h2>
+        <p id="complete-message" style="font-size: 18px; margin-bottom: 24px;"></p>
+        <button onclick="closeCompleteDialog()" class="btn btn-success">🏠 ホームに戻る</button>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Timer state
     let timerState = {
         isRunning: false,
         isPaused: false,
@@ -96,12 +81,10 @@
         intervalId: null
     };
 
-    // DOM elements
     const timerDisplay = document.getElementById('timer-display');
     const statusText = document.getElementById('status-text');
     const progressText = document.getElementById('progress-text');
     const nextTaskText = document.getElementById('next-task-text');
-    const endTimeText = document.getElementById('end-time-text');
     const timerCard = document.getElementById('timer-card');
     const playlistDropdown = document.getElementById('playlist-dropdown');
     const startBtn = document.getElementById('start-btn');
@@ -109,7 +92,6 @@
     const stopBtn = document.getElementById('stop-btn');
     const playlistSelection = document.getElementById('playlist-selection');
 
-    // Playlist selection handler
     playlistDropdown.addEventListener('change', async function () {
         const playlistId = this.value;
         if (!playlistId) {
@@ -130,17 +112,14 @@
 
     function startTimer() {
         if (timerState.tasks.length === 0) return;
-
         timerState.isRunning = true;
         timerState.currentTaskIndex = 0;
         timerState.isBreak = false;
-
         playlistSelection.classList.add('hidden');
         startBtn.classList.add('hidden');
         pauseBtn.classList.remove('hidden');
         stopBtn.classList.remove('hidden');
-        timerCard.classList.add('timer-active');
-
+        timerCard.classList.add('active');
         startTask();
     }
 
@@ -149,17 +128,13 @@
             completePlaylist();
             return;
         }
-
         const task = timerState.tasks[timerState.currentTaskIndex];
         timerState.remainingSeconds = task.duration * 60;
         timerState.isBreak = false;
-
         progressText.textContent = `タスク ${timerState.currentTaskIndex + 1} / ${timerState.tasks.length}`;
         statusText.textContent = `📝 ${task.title}`;
-
         const nextTask = timerState.tasks[timerState.currentTaskIndex + 1];
         nextTaskText.textContent = nextTask ? `次: ${nextTask.title}` : '🎯 最後のタスクです！';
-
         updateTimerDisplay();
         timerState.intervalId = setInterval(tick, 1000);
     }
@@ -168,29 +143,23 @@
         const task = timerState.tasks[timerState.currentTaskIndex];
         timerState.remainingSeconds = task.break_duration * 60;
         timerState.isBreak = true;
-
         statusText.textContent = `☕ 休憩中 (${task.break_duration}分)`;
-
         updateTimerDisplay();
         timerState.intervalId = setInterval(tick, 1000);
     }
 
     function tick() {
         if (!timerState.isRunning || timerState.isPaused) return;
-
         timerState.remainingSeconds--;
         updateTimerDisplay();
-
         if (timerState.remainingSeconds <= 0) {
             clearInterval(timerState.intervalId);
-
             if (timerState.isBreak) {
                 timerState.currentTaskIndex++;
                 startTask();
             } else {
                 const task = timerState.tasks[timerState.currentTaskIndex];
                 completeTask(task);
-
                 if (task.break_duration > 0) {
                     startBreak();
                 } else {
@@ -210,26 +179,18 @@
     function togglePause() {
         timerState.isPaused = !timerState.isPaused;
         pauseBtn.textContent = timerState.isPaused ? '▶️ 再開' : '⏸️ 一時停止';
-        if (timerState.isPaused) {
-            statusText.textContent = '⏸️ 一時停止中...';
-        } else {
-            const task = timerState.tasks[timerState.currentTaskIndex];
-            statusText.textContent = timerState.isBreak ? `☕ 休憩中` : `📝 ${task.title}`;
-        }
     }
 
     function confirmStop() {
-        if (confirm('本当に中止しますか？\n途中で諦めると、次も諦めやすくなります。')) {
+        if (confirm('本当に中止しますか？')) {
             stopTimer();
         }
     }
 
     function stopTimer() {
         timerState.isRunning = false;
-        timerState.isPaused = false;
         clearInterval(timerState.intervalId);
         resetUI();
-        statusText.textContent = '中止しました';
     }
 
     async function completeTask(task) {
@@ -243,10 +204,7 @@
     function completePlaylist() {
         timerState.isRunning = false;
         clearInterval(timerState.intervalId);
-
-        const completedCount = timerState.tasks.length;
-        document.getElementById('complete-message').textContent =
-            `✨ ${completedCount}個のタスクを完了しました！`;
+        document.getElementById('complete-message').textContent = `✨ ${timerState.tasks.length}個のタスクを完了しました！`;
         document.getElementById('complete-dialog').classList.remove('hidden');
     }
 
@@ -259,24 +217,17 @@
         timerDisplay.textContent = '00:00';
         progressText.textContent = '';
         nextTaskText.textContent = '';
-        endTimeText.textContent = '';
-
         playlistSelection.classList.remove('hidden');
         startBtn.classList.remove('hidden');
         pauseBtn.classList.add('hidden');
         stopBtn.classList.add('hidden');
-        timerCard.classList.remove('timer-active');
+        timerCard.classList.remove('active');
+        statusText.textContent = '中止しました';
     }
 
     {% if request.args.get('quick') %}
     window.onload = function () {
-        timerState.tasks = [{
-            id: -1,
-            title: 'クイック集中タイム',
-            duration: 25,
-            break_duration: 5,
-            difficulty: 3
-        }];
+        timerState.tasks = [{ id: -1, title: 'クイック集中タイム', duration: 25, break_duration: 5, difficulty: 3 }];
         startTimer();
     };
     {% endif %}
