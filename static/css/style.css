@@ -45,12 +45,12 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: 
-        radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.3), transparent),
-        radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.2), transparent),
-        radial-gradient(1px 1px at 90px 40px, rgba(255,255,255,0.4), transparent),
-        radial-gradient(2px 2px at 160px 120px, rgba(255,255,255,0.25), transparent),
-        radial-gradient(1px 1px at 230px 80px, rgba(255,255,255,0.35), transparent);
+    background-image:
+        radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.3), transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.2), transparent),
+        radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.4), transparent),
+        radial-gradient(2px 2px at 160px 120px, rgba(255, 255, 255, 0.25), transparent),
+        radial-gradient(1px 1px at 230px 80px, rgba(255, 255, 255, 0.35), transparent);
     background-size: 300px 300px;
     pointer-events: none;
     z-index: 0;
@@ -58,8 +58,15 @@ body::before {
 }
 
 @keyframes twinkle {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
+
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 1;
+    }
 }
 
 a {
@@ -176,6 +183,17 @@ a {
 /* ==================== 
    Typography 
 ==================== */
+.timer-display {
+    font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+    font-size: 72px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #64b5f6, #7c4dff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.05em;
+}
+
 .page-title {
     font-size: 28px;
     font-weight: 700;
@@ -306,7 +324,9 @@ a {
 /* ==================== 
    Forms 
 ==================== */
-.form-input, .form-select, .form-textarea {
+.form-input,
+.form-select,
+.form-textarea {
     width: 100%;
     padding: 12px 16px;
     background: rgba(10, 10, 26, 0.8);
@@ -317,7 +337,9 @@ a {
     transition: all 0.3s ease;
 }
 
-.form-input:focus, .form-select:focus, .form-textarea:focus {
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.2);
@@ -361,13 +383,33 @@ a {
     transition: width 0.5s ease;
 }
 
-.progress-bar-fill.mood-high { background: linear-gradient(90deg, #ff6b9d, #ff8fab); }
-.progress-bar-fill.mood-medium { background: linear-gradient(90deg, #ffc107, #ffca28); }
-.progress-bar-fill.mood-low { background: linear-gradient(90deg, #ff9800, #ffb74d); }
-.progress-bar-fill.mood-danger { background: linear-gradient(90deg, #f44336, #e57373); }
-.progress-bar-fill.primary { background: linear-gradient(90deg, #7c4dff, #9c6dff); }
-.progress-bar-fill.success { background: linear-gradient(90deg, #4caf50, #66bb6a); }
-.progress-bar-fill.gold { background: linear-gradient(90deg, #ffc107, #ffca28); }
+.progress-bar-fill.mood-high {
+    background: linear-gradient(90deg, #ff6b9d, #ff8fab);
+}
+
+.progress-bar-fill.mood-medium {
+    background: linear-gradient(90deg, #ffc107, #ffca28);
+}
+
+.progress-bar-fill.mood-low {
+    background: linear-gradient(90deg, #ff9800, #ffb74d);
+}
+
+.progress-bar-fill.mood-danger {
+    background: linear-gradient(90deg, #f44336, #e57373);
+}
+
+.progress-bar-fill.primary {
+    background: linear-gradient(90deg, #7c4dff, #9c6dff);
+}
+
+.progress-bar-fill.success {
+    background: linear-gradient(90deg, #4caf50, #66bb6a);
+}
+
+.progress-bar-fill.gold {
+    background: linear-gradient(90deg, #ffc107, #ffca28);
+}
 
 /* ==================== 
    Stats Grid 
@@ -388,12 +430,29 @@ a {
     font-weight: 700;
 }
 
-.stat-value.yellow { color: #ffc107; }
-.stat-value.green { color: #4caf50; }
-.stat-value.orange { color: #ff9800; }
-.stat-value.purple { color: #7c4dff; }
-.stat-value.blue { color: #64b5f6; }
-.stat-value.pink { color: #ff6b9d; }
+.stat-value.yellow {
+    color: #ffc107;
+}
+
+.stat-value.green {
+    color: #4caf50;
+}
+
+.stat-value.orange {
+    color: #ff9800;
+}
+
+.stat-value.purple {
+    color: #7c4dff;
+}
+
+.stat-value.blue {
+    color: #64b5f6;
+}
+
+.stat-value.pink {
+    color: #ff6b9d;
+}
 
 .stat-label {
     font-size: 12px;
@@ -418,8 +477,15 @@ a {
 }
 
 @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 20px rgba(124, 77, 255, 0.4); }
-    50% { box-shadow: 0 0 40px rgba(124, 77, 255, 0.7); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 20px rgba(124, 77, 255, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 40px rgba(124, 77, 255, 0.7);
+    }
 }
 
 /* ==================== 
@@ -433,8 +499,15 @@ a {
 }
 
 @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
 }
 
 .creature-mood {
@@ -602,39 +675,90 @@ a {
 /* ==================== 
    Utilities 
 ==================== */
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.items-center { align-items: center; }
-.justify-center { justify-content: center; }
-.justify-between { justify-content: space-between; }
-.gap-2 { gap: 8px; }
-.gap-4 { gap: 16px; }
-.gap-6 { gap: 24px; }
-.mb-2 { margin-bottom: 8px; }
-.mb-4 { margin-bottom: 16px; }
-.mb-6 { margin-bottom: 24px; }
-.mt-2 { margin-top: 8px; }
-.mt-4 { margin-top: 16px; }
-.mt-6 { margin-top: 24px; }
-.text-center { text-align: center; }
-.w-full { width: 100%; }
-.hidden { display: none !important; }
+.flex {
+    display: flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.gap-2 {
+    gap: 8px;
+}
+
+.gap-4 {
+    gap: 16px;
+}
+
+.gap-6 {
+    gap: 24px;
+}
+
+.mb-2 {
+    margin-bottom: 8px;
+}
+
+.mb-4 {
+    margin-bottom: 16px;
+}
+
+.mb-6 {
+    margin-bottom: 24px;
+}
+
+.mt-2 {
+    margin-top: 8px;
+}
+
+.mt-4 {
+    margin-top: 16px;
+}
+
+.mt-6 {
+    margin-top: 24px;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.hidden {
+    display: none !important;
+}
 
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar {
         width: 60px;
     }
-    
+
     .main-content {
         margin-left: 60px;
         padding: 16px;
     }
-    
-    .stats-grid, .form-row {
+
+    .stats-grid,
+    .form-row {
         grid-template-columns: 1fr;
     }
-    
+
     .timer-display {
         font-size: 60px;
     }
