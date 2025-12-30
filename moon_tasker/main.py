@@ -219,4 +219,4 @@ def main(page: ft.Page):
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("FLET_SERVER_PORT", 8080))
-    ft.app(target=main, port=port, host="0.0.0.0")
+    ft.app(target=main, port=port, host="0.0.0.0", view=None)
