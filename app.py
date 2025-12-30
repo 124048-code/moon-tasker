@@ -237,16 +237,17 @@ def optimize_playlist(playlist_id):
     if not tasks:
         return redirect(url_for('playlist', selected=playlist_id))
     
-    optimizer = ScheduleOptimizer()
+    lifestyle = db.get_lifestyle_settings()
     
     if mode == 'balanced':
-        optimized = optimizer.optimize_balanced(tasks)
+        optimizer = ScheduleOptimizer()
+        optimized = optimizer.generate_balanced_schedule(tasks)
     elif mode == 'time_limited' and time_limit:
-        optimized = optimizer.optimize_time_limited(tasks, time_limit)
+        optimizer = ScheduleOptimizer()
+        optimized = optimizer.optimize_schedule(tasks, time_limit)
     elif mode == 'genetic':
-        genetic = GeneticScheduleOptimizer()
-        lifestyle = db.get_lifestyle_settings()
-        optimized = genetic.optimize(tasks, lifestyle)
+        genetic = GeneticScheduleOptimizer(lifestyle)
+        optimized = genetic.optimize(tasks)
     else:
         optimized = tasks
     

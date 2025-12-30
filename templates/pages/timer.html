@@ -209,7 +209,15 @@
             } else {
                 const task = timerState.tasks[timerState.currentTaskIndex];
                 completeTask(task);
-                if (task.break_duration > 0) {
+
+                // 最後のタスクの場合は休憩をスキップしてすぐに完了
+                const isLastTask = timerState.currentTaskIndex >= timerState.tasks.length - 1;
+
+                if (isLastTask) {
+                    // 最後のタスクなので休憩なしで完了
+                    timerState.currentTaskIndex++;
+                    completePlaylist();
+                } else if (task.break_duration > 0) {
                     startBreak();
                 } else {
                     timerState.currentTaskIndex++;
