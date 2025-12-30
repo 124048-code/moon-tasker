@@ -268,7 +268,8 @@ def collection():
         badges = db.get_all_badges()
         unlocked = [b for b in badges if b.unlocked_at]
         locked = [b for b in badges if not b.unlocked_at]
-    except Exception:
+    except Exception as e:
+        print(f"Badge error: {e}")
         unlocked = []
         locked = []
     
