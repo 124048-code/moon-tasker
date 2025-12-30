@@ -264,9 +264,13 @@ def create_moon_cycle():
 @app.route('/collection')
 def collection():
     """星座図鑑画面"""
-    badges = badge_system.get_all_badges()
-    unlocked = [b for b in badges if b.unlocked_at]
-    locked = [b for b in badges if not b.unlocked_at]
+    try:
+        badges = db.get_all_badges()
+        unlocked = [b for b in badges if b.unlocked_at]
+        locked = [b for b in badges if not b.unlocked_at]
+    except Exception:
+        unlocked = []
+        locked = []
     
     return render_template('pages/collection.html',
                          unlocked_badges=unlocked,
@@ -323,17 +327,21 @@ def start_creature():
 @app.route('/friends')
 def friends():
     """フレンド画面"""
-    # Supabase認証状態を確認
-    from moon_tasker.cloud.supabase_client import SupabaseAuth
-    auth = SupabaseAuth()
-    
-    is_logged_in = auth.current_user is not None
+    is_logged_in = False
     user_profile = None
     friends_list = []
     
-    if is_logged_in:
-        user_profile = auth.get_profile()
-        friends_list = auth.get_friends()
+    try:
+        from moon_tasker.cloud.supabase_client import SupabaseAuth
+        auth = SupabaseAuth()
+        is_logged_in = auth.current_user is not None
+        
+        if is_logged_in:
+            user_profile = auth.get_profile()
+            friends_list = auth.get_friends()
+    except Exception:
+        # Supabase未設定の場合はオフラインモード
+        pass
     
     return render_template('pages/friends.html',
                          is_logged_in=is_logged_in,
