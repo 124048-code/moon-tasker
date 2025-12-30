@@ -1,35 +1,39 @@
 """
-Moon Tasker - Test Version 3
-Using Tabs instead of NavigationRail
+Moon Tasker - Test Version 4
+Super simple with buttons
 """
 import flet as ft
 import os
 
 
 def main(page: ft.Page):
-    """Test app with tabs"""
+    """Test app with buttons"""
     page.title = "Moon Tasker"
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 20
+    page.bgcolor = "#0f0f1a"
     
-    # タブ
-    tabs = ft.Tabs(
-        selected_index=0,
-        tabs=[
-            ft.Tab(text="ホーム", icon="home"),
-            ft.Tab(text="タイマー", icon="timer"),
-            ft.Tab(text="タスク", icon="playlist_play"),
-        ],
+    # 状態
+    current_view = ft.Text("🏠 ホーム画面", size=24)
+    
+    def change_view(name):
+        current_view.value = name
+        page.update()
+    
+    # レイアウト
+    page.add(
+        ft.Column([
+            ft.Text("🌙 Moon Tasker", size=32, weight=ft.FontWeight.BOLD, color="#90caf9"),
+            ft.Divider(),
+            ft.Row([
+                ft.ElevatedButton("🏠 ホーム", on_click=lambda e: change_view("🏠 ホーム画面")),
+                ft.ElevatedButton("⏱️ タイマー", on_click=lambda e: change_view("⏱️ タイマー画面")),
+                ft.ElevatedButton("📝 タスク", on_click=lambda e: change_view("📝 タスク管理画面")),
+            ]),
+            ft.Divider(),
+            current_view,
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
     )
-    
-    # コンテンツ
-    content = ft.Column([
-        ft.Text("🌙 Moon Tasker", size=32, weight=ft.FontWeight.BOLD),
-        ft.Text("アプリが動作しています！", size=18),
-        tabs,
-    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
-    
-    page.add(content)
 
 
 if __name__ == "__main__":
