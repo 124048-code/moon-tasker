@@ -72,9 +72,26 @@ class Database:
                 energy INTEGER DEFAULT 50,
                 evolution_stage INTEGER DEFAULT 1,
                 last_interaction TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'active',
+                ended_at TIMESTAMP,
+                cooldown_until TIMESTAMP
             )
         """)
+        
+        # creaturesテーブルのマイグレーション（statusカラム追加）
+        try:
+            cursor.execute("ALTER TABLE creatures ADD COLUMN status TEXT DEFAULT 'active'")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE creatures ADD COLUMN ended_at TIMESTAMP")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE creatures ADD COLUMN cooldown_until TIMESTAMP")
+        except:
+            pass
         
         # badgesテーブル
         cursor.execute("""
@@ -1055,3 +1072,126 @@ class Database:
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
+    
+    # ===== 生活設定 =====
+    
+    def get_lifestyle_settings(self) -> Optional[LifestyleSettings]:
+        """生活設定を取得"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM lifestyle_settings LIMIT 1")
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return LifestyleSettings()  # デフォルト値
+        
+        return LifestyleSettings(
+            wake_time=row['wake_time'] if 'wake_time' in row.keys() else '07:00',
+            sleep_time=row['sleep_time'] if 'sleep_time' in row.keys() else '23:00',
+            breakfast_time=row['breakfast_time'] if 'breakfast_time' in row.keys() else '07:30',
+            lunch_time=row['lunch_time'] if 'lunch_time' in row.keys() else '12:00',
+            dinner_time=row['dinner_time'] if 'dinner_time' in row.keys() else '19:00',
+            bath_time=row['bath_time'] if 'bath_time' in row.keys() else '21:00',
+            min_sleep_hours=row['min_sleep_hours'] if 'min_sleep_hours' in row.keys() else 7,
+            bath_duration=row['bath_duration'] if 'bath_duration' in row.keys() else 30,
+            meal_duration=row['meal_duration'] if 'meal_duration' in row.keys() else 30
+        )
+    
+    def save_lifestyle_settings(self, settings: LifestyleSettings):
+        """生活設定を保存"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        # テーブルが存在しない場合は作成
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS lifestyle_settings (
+                id INTEGER PRIMARY KEY,
+                wake_time TEXT,
+                sleep_time TEXT,
+                breakfast_time TEXT,
+                lunch_time TEXT,
+                dinner_time TEXT,
+                bath_time TEXT,
+                min_sleep_hours INTEGER DEFAULT 7,
+                bath_duration INTEGER DEFAULT 30,
+                meal_duration INTEGER DEFAULT 30
+            )
+        """)
+        
+        # 既存の設定を削除して新しく挿入
+        cursor.execute("DELETE FROM lifestyle_settings")
+        cursor.execute("""
+            INSERT INTO lifestyle_settings 
+            (wake_time, sleep_time, breakfast_time, lunch_time, dinner_time, bath_time, min_sleep_hours, bath_duration, meal_duration)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            settings.wake_time,
+            settings.sleep_time,
+            settings.breakfast_time,
+            settings.lunch_time,
+            settings.dinner_time,
+            settings.bath_time,
+            settings.min_sleep_hours,
+            settings.bath_duration,
+            settings.meal_duration
+        ))
+        conn.commit()
+        conn.close()
+    
+    # ===== 目標サイクル追加メソッド =====
+    
+    def complete_moon_cycle(self, cycle_id: int, self_rating: int = 0, 
+                           good_points: str = "", improvement_points: str = "", next_actions: str = ""):
+        """サイクルを完了"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE moon_cycles 
+            SET status = 'completed',
+                review = ?
+            WHERE id = ?
+        """, (f"評価:{self_rating}/5\n良かった点:{good_points}\n改善点:{improvement_points}\n次のアクション:{next_actions}", cycle_id))
+        conn.commit()
+        conn.close()
+    
+    def delete_moon_cycle(self, cycle_id: int):
+        """サイクルを削除"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        # 関連するタスクを削除
+        cursor.execute("DELETE FROM cycle_tasks WHERE cycle_id = ?", (cycle_id,))
+        # サイクル自体を削除
+        cursor.execute("DELETE FROM moon_cycles WHERE id = ?", (cycle_id,))
+        conn.commit()
+        conn.close()
+    
+    # ===== 生命体作成 =====
+    
+    def create_creature(self, name: str) -> Creature:
+        """新しい生命体を作成"""
+        from datetime import datetime
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        now = datetime.now().isoformat()
+        cursor.execute("""
+            INSERT INTO creatures (name, mood, energy, evolution_stage, last_interaction, created_at, status)
+            VALUES (?, 50, 50, 1, ?, ?, 'active')
+        """, (name, now, now))
+        
+        creature_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        return Creature(
+            id=creature_id,
+            name=name,
+            mood=50,
+            energy=50,
+            evolution_stage=1,
+            last_interaction=now,
+            created_at=now,
+            status='active'
+        )
+

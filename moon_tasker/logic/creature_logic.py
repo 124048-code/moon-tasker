@@ -333,3 +333,8 @@ class CreatureSystem:
         emotion_name = self._get_emotion_name(creature)
         stage = creature.evolution_stage
         return f"stage{stage}_{emotion_name}.png"
+    
+    def start_new_creature(self, name: str) -> Creature:
+        """新しい生命体を開始"""
+        return self.db.create_creature(name)
+
