@@ -733,6 +733,8 @@ def update_nickname():
         session['user_nickname'] = nickname
     except Exception as e:
         print(f"Update nickname error: {e}")
+    
+    return redirect(url_for('friends'))
 
 
 @app.route('/friends/<friend_id>/creature')
