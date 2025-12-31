@@ -170,9 +170,10 @@ class SupabaseDB:
             return False
         
         try:
-            url = f"{SUPABASE_URL}/rest/v1/profiles"
+            # Supabase UPSERT: on_conflictパラメータで重複時の更新を指定
+            url = f"{SUPABASE_URL}/rest/v1/profiles?on_conflict=id"
             headers = self._get_headers()
-            headers["Prefer"] = "resolution=merge-duplicates"
+            headers["Prefer"] = "return=minimal,resolution=merge-duplicates"
             response = httpx.post(
                 url,
                 headers=headers,
@@ -183,7 +184,8 @@ class SupabaseDB:
                 },
                 timeout=10.0
             )
-            return response.status_code in [200, 201]
+            print(f"Upsert profile response: {response.status_code} - {response.text}")
+            return response.status_code in [200, 201, 204]
         except Exception as e:
             print(f"プロフィール更新エラー: {e}")
         return False

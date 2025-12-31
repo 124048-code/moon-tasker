@@ -50,12 +50,24 @@
         style="padding: 16px 40px; font-size: 16px;">
         ▶️ 開始
     </button>
-    <button id="pause-btn" onclick="togglePause()" class="btn btn-secondary hidden" style="padding: 16px 32px;">
-        ⏸️ 一時停止
-    </button>
-    <button id="stop-btn" onclick="showStopConfirm()" class="btn btn-danger hidden" style="padding: 16px 32px;">
-        ⏹️ 中止
-    </button>
+
+    <!-- タイマー動作中のメニュー -->
+    <div id="timer-menu-container" class="hidden" style="position: relative;">
+        <button onclick="toggleTimerMenu()" class="btn btn-secondary" style="padding: 16px 20px; opacity: 0.6;">
+            ⋯
+        </button>
+        <div id="timer-menu" class="hidden"
+            style="position: absolute; bottom: 100%; right: 0; margin-bottom: 8px; background: rgba(30,30,50,0.95); border-radius: 12px; padding: 8px; min-width: 150px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            <button id="pause-btn" onclick="togglePause(); toggleTimerMenu();" class="btn btn-secondary w-full mb-2"
+                style="padding: 12px;">
+                ⏸️ 一時停止
+            </button>
+            <button id="stop-btn" onclick="showStopConfirm(); toggleTimerMenu();" class="btn btn-danger w-full"
+                style="padding: 12px;">
+                ⏹️ 中止
+            </button>
+        </div>
+    </div>
 </div>
 
 <!-- 完了ダイアログ -->
@@ -166,8 +178,7 @@
         timerState.isBreak = false;
         playlistSelection.classList.add('hidden');
         startBtn.classList.add('hidden');
-        pauseBtn.classList.remove('hidden');
-        stopBtn.classList.remove('hidden');
+        document.getElementById('timer-menu-container').classList.remove('hidden');
         timerCard.classList.add('timer-active');
         startTask();
     }
@@ -315,11 +326,16 @@
         nextTaskText.textContent = '';
         playlistSelection.classList.remove('hidden');
         startBtn.classList.remove('hidden');
-        pauseBtn.classList.add('hidden');
-        stopBtn.classList.add('hidden');
+        document.getElementById('timer-menu-container').classList.add('hidden');
+        document.getElementById('timer-menu').classList.add('hidden');
         timerCard.classList.remove('timer-active');
         statusText.textContent = '中止しました';
         completedResults = { badges: [], evolutions: [], present: null };
+    }
+
+    function toggleTimerMenu() {
+        const menu = document.getElementById('timer-menu');
+        menu.classList.toggle('hidden');
     }
 
     {% if request.args.get('quick') %}
