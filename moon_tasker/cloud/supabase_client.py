@@ -289,11 +289,14 @@ class SupabaseDB:
     def get_user_playlists(self, user_id: str) -> list:
         """ユーザーのプレイリスト一覧を取得"""
         if not SUPABASE_URL:
+            print("[GET_USER_PLAYLISTS] No SUPABASE_URL")
             return []
         
         try:
             url = f"{SUPABASE_URL}/rest/v1/user_playlists?user_id=eq.{user_id}&select=*&order=created_at.desc"
+            print(f"[GET_USER_PLAYLISTS] URL: {url}")
             response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[GET_USER_PLAYLISTS] Status: {response.status_code}, Response: {response.text[:200] if response.text else 'empty'}")
             if response.status_code == 200:
                 return response.json()
         except Exception as e:
@@ -348,11 +351,14 @@ class SupabaseDB:
     def get_user_tasks(self, user_id: str) -> list:
         """ユーザーのタスク一覧を取得"""
         if not SUPABASE_URL:
+            print("[GET_USER_TASKS] No SUPABASE_URL")
             return []
         
         try:
             url = f"{SUPABASE_URL}/rest/v1/user_tasks?user_id=eq.{user_id}&select=*&order=created_at.desc"
+            print(f"[GET_USER_TASKS] URL: {url}")
             response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[GET_USER_TASKS] Status: {response.status_code}, Response: {response.text[:200] if response.text else 'empty'}")
             if response.status_code == 200:
                 return response.json()
         except Exception as e:

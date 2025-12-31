@@ -867,6 +867,7 @@ def sync_download():
     from moon_tasker.cloud.supabase_client import get_cloud_db
     
     user_id = session.get('user_id')
+    print(f"[SYNC_DOWNLOAD] user_id: {user_id}")
     if not user_id:
         return jsonify({'error': 'Not logged in'}), 401
     
@@ -875,6 +876,7 @@ def sync_download():
         
         # クラウドタスクをダウンロード
         cloud_tasks = cloud_db.get_user_tasks(user_id)
+        print(f"[SYNC_DOWNLOAD] cloud_tasks count: {len(cloud_tasks)}")
         for t in cloud_tasks:
             task = Task(
                 title=t.get('title', ''),
@@ -888,6 +890,7 @@ def sync_download():
         
         # クラウドプレイリストをダウンロード
         cloud_playlists = cloud_db.get_user_playlists(user_id)
+        print(f"[SYNC_DOWNLOAD] cloud_playlists count: {len(cloud_playlists)}")
         for p in cloud_playlists:
             pl = Playlist(
                 name=p.get('name', ''),
@@ -897,6 +900,7 @@ def sync_download():
         
         return jsonify({'success': True, 'tasks': len(cloud_tasks), 'playlists': len(cloud_playlists)})
     except Exception as e:
+        print(f"[SYNC_DOWNLOAD] Error: {e}")
         return jsonify({'error': str(e)}), 500
 
 
