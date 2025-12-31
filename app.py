@@ -537,6 +537,11 @@ def friends():
             # プロフィール取得
             user_profile = cloud_db.get_profile(user_id)
             
+            # セッションにプロフィールデータを同期
+            if user_profile:
+                session['user_nickname'] = user_profile.get('nickname', '')
+                session['user_title'] = user_profile.get('constellation_badge', '')
+            
             # フレンドコード（ユーザーID短縮版）
             my_friend_code = user_id[:8].upper() if user_id else None
             
@@ -703,8 +708,19 @@ def update_title():
     
     try:
         cloud_db = get_cloud_db()
+        # 現在のニックネームを取得（セッション優先、なければプロフィールから）
+        nickname = session.get('user_nickname')
+        if not nickname:
+            current_profile = cloud_db.get_profile(user_id)
+            nickname = current_profile.get('nickname', '') if current_profile else ''
+        if not nickname:
+            nickname = session.get('user_email', '').split('@')[0]
+        
         # プロフィールの称号を更新
-        cloud_db.upsert_profile(user_id, session.get('user_email', '').split('@')[0], title)
+        cloud_db.upsert_profile(user_id, nickname, title)
+        
+        # セッションにも保存
+        session['user_title'] = title
     except Exception as e:
         print(f"Update title error: {e}")
     
@@ -851,7 +867,79 @@ def sync_download():
         return jsonify({'error': str(e)}), 500
 
 
-# ============ ERROR HANDLERS ============
+# ============ LOCAL STORAGE API ============
+
+@app.route('/api/restore-local', methods=['POST'])
+def restore_from_local():
+    """localStorageからデータを復元"""
+    try:
+        data = request.get_json() or {}
+        tasks = data.get('tasks', [])
+        playlists = data.get('playlists', [])
+        
+        restored_tasks = 0
+        restored_playlists = 0
+        
+        # 既存データがなければ復元
+        existing_tasks = db.get_all_tasks()
+        existing_playlists = db.get_all_playlists()
+        
+        if len(existing_tasks) == 0:
+            for t in tasks:
+                task = Task(
+                    title=t.get('title', ''),
+                    duration=t.get('duration', 25),
+                    break_duration=t.get('break_duration', 5),
+                    difficulty=t.get('difficulty', 3),
+                    priority=t.get('priority', 0),
+                    status=t.get('status', 'pending')
+                )
+                db.create_task(task)
+                restored_tasks += 1
+        
+        if len(existing_playlists) == 0:
+            for p in playlists:
+                pl = Playlist(
+                    name=p.get('name', ''),
+                    description=p.get('description', '')
+                )
+                db.create_playlist(pl)
+                restored_playlists += 1
+        
+        return jsonify({'success': True, 'tasks': restored_tasks, 'playlists': restored_playlists})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/get-all-data')
+def get_all_data():
+    """全データを取得（localStorageに保存用）"""
+    try:
+        tasks = db.get_all_tasks()
+        playlists = db.get_all_playlists()
+        
+        tasks_data = [{
+            'id': t.id,
+            'title': t.title,
+            'duration': t.duration,
+            'break_duration': t.break_duration,
+            'difficulty': t.difficulty,
+            'priority': t.priority,
+            'status': t.status
+        } for t in tasks]
+        
+        playlists_data = [{
+            'id': p.id,
+            'name': p.name,
+            'description': p.description
+        } for p in playlists]
+        
+        return jsonify({'tasks': tasks_data, 'playlists': playlists_data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
 
 @app.errorhandler(404)
 def not_found(e):

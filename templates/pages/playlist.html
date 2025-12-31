@@ -252,5 +252,16 @@
             }
         });
     });
+
+    // ページ表示時にlocalStorageに保存（ゲスト用バックアップ）
+    (async function () {
+        try {
+            const res = await fetch('/api/get-all-data');
+            const data = await res.json();
+            if (data.tasks) MoonTaskerStorage.saveTasks(data.tasks);
+            if (data.playlists) MoonTaskerStorage.savePlaylists(data.playlists);
+            console.log('📦 Data backed up to localStorage');
+        } catch (e) { }
+    })();
 </script>
 {% endblock %}

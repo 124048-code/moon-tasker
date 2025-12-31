@@ -77,6 +77,65 @@
     </div>
 
     {% block scripts %}{% endblock %}
+
+    <!-- localStorage データ管理 -->
+    <script>
+        const MoonTaskerStorage = {
+            // キー名
+            TASKS_KEY: 'moontasker_tasks',
+            PLAYLISTS_KEY: 'moontasker_playlists',
+
+            // タスクを保存
+            saveTasks(tasks) {
+                localStorage.setItem(this.TASKS_KEY, JSON.stringify(tasks));
+            },
+
+            // タスクを取得
+            getTasks() {
+                try {
+                    return JSON.parse(localStorage.getItem(this.TASKS_KEY)) || [];
+                } catch { return []; }
+            },
+
+            // プレイリストを保存
+            savePlaylists(playlists) {
+                localStorage.setItem(this.PLAYLISTS_KEY, JSON.stringify(playlists));
+            },
+
+            // プレイリストを取得
+            getPlaylists() {
+                try {
+                    return JSON.parse(localStorage.getItem(this.PLAYLISTS_KEY)) || [];
+                } catch { return []; }
+            },
+
+            // 全データをクリア
+            clear() {
+                localStorage.removeItem(this.TASKS_KEY);
+                localStorage.removeItem(this.PLAYLISTS_KEY);
+            }
+        };
+
+        // ページ読み込み時にlocalStorageからサーバーに復元
+        document.addEventListener('DOMContentLoaded', async function () {
+            const tasks = MoonTaskerStorage.getTasks();
+            const playlists = MoonTaskerStorage.getPlaylists();
+
+            // データがあればサーバーに復元（初回のみ）
+            if ((tasks.length > 0 || playlists.length > 0) && !sessionStorage.getItem('data_restored')) {
+                try {
+                    await fetch('/api/restore-local', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tasks, playlists })
+                    });
+                    sessionStorage.setItem('data_restored', 'true');
+                } catch (e) {
+                    console.log('Data restore skipped');
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>
