@@ -139,6 +139,12 @@ def complete_task():
     # バッジチェック
     newly_unlocked = badge_system.check_all_badges()
     
+    # 新しいバッジをセッションに保存（星座図鑑で演出表示用）
+    if newly_unlocked:
+        new_badge_names = [b.name for b in newly_unlocked]
+        existing = session.get('new_badges', [])
+        session['new_badges'] = existing + new_badge_names
+    
     # 進化チェック
     creature = creature_system.get_creature()
     evolutions = []
@@ -425,11 +431,14 @@ def collection():
         unlocked = []
         locked = []
         categories = {}
+    # 新しく獲得したバッジをセッションから取得（表示後にクリア）
+    new_badges = session.pop('new_badges', [])
     
     return render_template('pages/collection.html',
                          unlocked_badges=unlocked,
                          locked_badges=locked,
-                         categories=categories)
+                         categories=categories,
+                         new_badges=new_badges)
 
 
 @app.route('/creature')

@@ -74,13 +74,17 @@
 <div id="complete-dialog" class="dialog-overlay hidden">
     <div class="card dialog-content text-center" style="padding: 40px;">
         <p style="font-size: 64px; margin-bottom: 16px;">🎉</p>
-        <h2 class="page-title" style="margin-bottom: 16px;">達成しました！</h2>
+        <h2 class="page-title" style="margin-bottom: 16px;">素晴らしい！</h2>
         <p id="complete-message" style="font-size: 18px; margin-bottom: 24px;"></p>
 
-        <!-- バッジ獲得表示 -->
+        <div id="motivation-message"
+            style="background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 152, 0, 0.1)); padding: 16px; border-radius: 12px; margin-bottom: 24px;">
+            <p style="font-size: 16px; color: #ffc107; font-weight: 500;">✨ あなたの努力が実を結びました！<br>この調子で夢に向かって進みましょう！</p>
+        </div>
+
+        <!-- バッジ獲得時は星座図鑑で表示するためここでは非表示 -->
         <div id="badges-earned" class="hidden mb-4">
-            <h3 style="color: #ffc107; margin-bottom: 12px;">🏆 称号獲得！</h3>
-            <div id="badges-list"></div>
+            <p style="color: #ffc107;">🌟 新しい星座が輝き始めました！図鑑で確認しよう！</p>
         </div>
 
         <!-- 進化表示 -->
