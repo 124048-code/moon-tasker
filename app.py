@@ -191,7 +191,9 @@ def create_playlist():
     name = request.form.get('name', '').strip()
     if name:
         pl = Playlist(name=name, description="")
-        db.create_playlist(pl)
+        new_id = db.create_playlist(pl)
+        # 新しく作成したプレイリストを選択した状態でリダイレクト
+        return redirect(url_for('playlist', selected=new_id))
     return redirect(url_for('playlist'))
 
 
@@ -707,6 +709,30 @@ def update_title():
         print(f"Update title error: {e}")
     
     return redirect(url_for('friends'))
+
+
+@app.route('/friends/update-nickname', methods=['POST'])
+def update_nickname():
+    """ニックネームを更新"""
+    from moon_tasker.cloud.supabase_client import get_cloud_db
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect(url_for('friends'))
+    
+    nickname = request.form.get('nickname', '').strip()
+    if not nickname:
+        return redirect(url_for('friends'))
+    
+    try:
+        cloud_db = get_cloud_db()
+        # 現在の称号を保持しつつニックネームを更新
+        current_profile = cloud_db.get_profile(user_id)
+        current_title = current_profile.get('constellation_badge', '') if current_profile else ''
+        cloud_db.upsert_profile(user_id, nickname, current_title)
+        session['user_nickname'] = nickname
+    except Exception as e:
+        print(f"Update nickname error: {e}")
 
 
 @app.route('/friends/<friend_id>/creature')
