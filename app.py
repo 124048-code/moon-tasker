@@ -738,11 +738,22 @@ def update_title():
         if not nickname:
             nickname = session.get('user_email', '').split('@')[0]
         
+        print(f"[UPDATE_TITLE] user_id={user_id}, nickname={nickname}, title={title}")
+        
         # プロフィールの称号を更新
-        cloud_db.upsert_profile(user_id, nickname, title)
+        result = cloud_db.upsert_profile(user_id, nickname, title)
+        print(f"[UPDATE_TITLE] upsert result: {result}")
         
         # セッションにも保存
         session['user_title'] = title
+        session['user_nickname'] = nickname
+        
+        # 更新後にプロフィールを再取得してセッションを同期
+        updated_profile = cloud_db.get_profile(user_id)
+        if updated_profile:
+            session['user_nickname'] = updated_profile.get('nickname', nickname)
+            session['user_title'] = updated_profile.get('constellation_badge', title)
+        
     except Exception as e:
         print(f"Update title error: {e}")
     

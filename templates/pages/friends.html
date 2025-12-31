@@ -213,6 +213,14 @@
     {% endif %}
 </div>
 
+<!-- ログイン状態用スクリプト -->
+<script>
+    function toggleNicknameEdit() {
+        const form = document.getElementById('nickname-form');
+        if (form) form.classList.toggle('hidden');
+    }
+</script>
+
 {% else %}
 <!-- ログインフォーム -->
 <div class="card">
