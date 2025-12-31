@@ -56,10 +56,10 @@ class SupabaseAuth:
             headers["Authorization"] = f"Bearer {SUPABASE_KEY}"
         return headers
     
-    def sign_in_with_email(self, email: str, password: str) -> bool:
+    def sign_in_with_email(self, email: str, password: str) -> dict:
         """Email/Passwordでログイン"""
         if not self.is_configured:
-            return False
+            return {'error': 'Supabaseが設定されていません'}
         
         try:
             url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
@@ -80,17 +80,18 @@ class SupabaseAuth:
                     "name": user_data.get("user_metadata", {}).get("full_name", email.split("@")[0]),
                     "avatar": user_data.get("user_metadata", {}).get("avatar_url", "")
                 }
-                return True
+                return {'success': True}
             else:
-                print(f"ログインエラー: {response.status_code} - {response.text}")
+                error_data = response.json() if response.text else {}
+                error_msg = error_data.get('error_description') or error_data.get('msg') or f'エラー({response.status_code})'
+                return {'error': error_msg}
         except Exception as e:
-            print(f"ログイン例外: {e}")
-        return False
+            return {'error': f'接続エラー: {str(e)}'}
     
-    def sign_up_with_email(self, email: str, password: str) -> bool:
+    def sign_up_with_email(self, email: str, password: str) -> dict:
         """Email/Passwordで新規登録"""
         if not self.is_configured:
-            return False
+            return {'error': 'Supabaseが設定されていません'}
         
         try:
             url = f"{SUPABASE_URL}/auth/v1/signup"
@@ -102,12 +103,22 @@ class SupabaseAuth:
             )
             
             if response.status_code in [200, 201]:
-                return True
+                data = response.json()
+                user_data = data.get("user", {})
+                self._access_token = data.get("access_token")
+                self._user = {
+                    "id": user_data.get("id"),
+                    "email": user_data.get("email"),
+                    "name": email.split("@")[0],
+                    "avatar": ""
+                }
+                return {'success': True}
             else:
-                print(f"登録エラー: {response.status_code} - {response.text}")
+                error_data = response.json() if response.text else {}
+                error_msg = error_data.get('error_description') or error_data.get('msg') or f'エラー({response.status_code})'
+                return {'error': error_msg}
         except Exception as e:
-            print(f"登録例外: {e}")
-        return False
+            return {'error': f'接続エラー: {str(e)}'}
     
     def sign_out(self) -> bool:
         """ログアウト"""
