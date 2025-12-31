@@ -29,8 +29,8 @@
             <span style="font-size: 28px;">🌙</span>
         </div>
         <div style="flex: 1;">
-            <p style="font-weight: 600; font-size: 18px;">{{ user_profile.nickname if user_profile else
-                user_email.split('@')[0] }}</p>
+            <p style="font-weight: 600; font-size: 18px;">{{ user_profile.nickname if user_profile and
+                user_profile.nickname else (user_nickname or user_email.split('@')[0]) }}</p>
             {% if user_profile and user_profile.constellation_badge %}
             <p style="color: #ffc107; font-size: 14px;">✨ {{ user_profile.constellation_badge }}</p>
             {% else %}

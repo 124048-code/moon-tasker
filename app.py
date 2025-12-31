@@ -556,7 +556,8 @@ def friends():
                          local_creature=local_creature,
                          has_local_creature=has_local_creature,
                          unlocked_badges=unlocked_badges,
-                         user_email=session.get('user_email'))
+                         user_email=session.get('user_email'),
+                         user_nickname=session.get('user_nickname'))
 
 
 @app.route('/friends/login', methods=['POST'])
@@ -617,6 +618,7 @@ def friends_signup():
             
             session['user_id'] = auth.user_id
             session['user_email'] = email
+            session['user_nickname'] = nickname
             session['access_token'] = auth._access_token
         
     except Exception as e:
