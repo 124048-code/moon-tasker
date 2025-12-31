@@ -465,6 +465,17 @@ class Database:
         conn.commit()
         conn.close()
     
+    def unlock_badge_by_name(self, badge_name: str):
+        """バッジ名でバッジを解放"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE badges SET unlocked = 1, unlocked_at = ?
+            WHERE name = ? AND unlocked = 0
+        """, (datetime.now(), badge_name))
+        conn.commit()
+        conn.close()
+    
     # ===== Playlist操作 =====
     
     def create_playlist(self, playlist: Playlist) -> int:

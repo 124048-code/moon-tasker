@@ -144,6 +144,14 @@ def complete_task():
         new_badge_names = [b.name for b in newly_unlocked]
         existing = session.get('new_badges', [])
         session['new_badges'] = existing + new_badge_names
+        
+        # ログインユーザー: Supabaseにも保存
+        user_id = session.get('user_id')
+        if user_id:
+            from moon_tasker.cloud.supabase_client import get_cloud_db
+            cloud_db = get_cloud_db()
+            for badge_name in new_badge_names:
+                cloud_db.save_user_badge(user_id, badge_name)
     
     # 進化チェック
     creature = creature_system.get_creature()
@@ -172,14 +180,37 @@ def complete_task():
 @app.route('/playlist')
 def playlist():
     """プレイリスト管理画面"""
-    playlists = db.get_all_playlists()
-    tasks = db.get_all_tasks()
-    pending_tasks = [t for t in tasks if t.status == "pending"]
+    user_id = session.get('user_id')
     
-    selected_id = request.args.get('selected', type=int)
-    selected_tasks = []
-    if selected_id:
-        selected_tasks = db.get_playlist_tasks(selected_id)
+    if user_id:
+        # ログインユーザー: Supabaseからデータ取得
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        
+        cloud_playlists = cloud_db.get_user_playlists(user_id)
+        playlists = [type('Playlist', (), {'id': p['id'], 'name': p['name'], 'description': p.get('description', '')})() for p in cloud_playlists]
+        
+        cloud_tasks = cloud_db.get_user_tasks(user_id)
+        tasks = [type('Task', (), {
+            'id': t['id'], 'title': t['title'], 'duration': t.get('duration', 25),
+            'break_duration': t.get('break_duration', 5), 'difficulty': t.get('difficulty', 3),
+            'priority': t.get('priority', 0), 'status': t.get('status', 'pending')
+        })() for t in cloud_tasks]
+        pending_tasks = [t for t in tasks if t.status == 'pending']
+        
+        selected_id = request.args.get('selected')
+        selected_tasks = []
+        # クラウドプレイリストの場合はまだ実装なし
+    else:
+        # ゲスト: ローカルDBから取得
+        playlists = db.get_all_playlists()
+        tasks = db.get_all_tasks()
+        pending_tasks = [t for t in tasks if t.status == "pending"]
+        
+        selected_id = request.args.get('selected', type=int)
+        selected_tasks = []
+        if selected_id:
+            selected_tasks = db.get_playlist_tasks(selected_id)
     
     lifestyle = db.get_lifestyle_settings()
     
@@ -188,19 +219,29 @@ def playlist():
                          pending_tasks=pending_tasks,
                          selected_id=selected_id,
                          selected_tasks=selected_tasks,
-                         lifestyle=lifestyle)
+                         lifestyle=lifestyle,
+                         is_logged_in=bool(user_id))
 
 
 @app.route('/playlist/create', methods=['POST'])
 def create_playlist():
     """プレイリスト作成"""
     name = request.form.get('name', '').strip()
-    if name:
+    if not name:
+        return redirect(url_for('playlist'))
+    
+    user_id = session.get('user_id')
+    if user_id:
+        # ログインユーザー: Supabaseに保存
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        new_id = cloud_db.save_user_playlist(user_id, {'name': name, 'description': ''})
+        return redirect(url_for('playlist', selected=new_id))
+    else:
+        # ゲスト: ローカルDBに保存
         pl = Playlist(name=name, description="")
         new_id = db.create_playlist(pl)
-        # 新しく作成したプレイリストを選択した状態でリダイレクト
         return redirect(url_for('playlist', selected=new_id))
-    return redirect(url_for('playlist'))
 
 
 @app.route('/playlist/<int:playlist_id>/delete', methods=['POST'])
@@ -302,19 +343,34 @@ def create_task():
     difficulty = request.form.get('difficulty', 2, type=int)
     duration = request.form.get('duration', 25, type=int)
     break_duration = request.form.get('break_duration', 5, type=int)
+    selected_id = request.form.get('selected_playlist')
     
-    task = Task(
-        title=title,
-        category="",
-        difficulty=difficulty,
-        duration=duration,
-        break_duration=break_duration,
-        priority=0,
-        status="pending"
-    )
-    db.create_task(task)
+    user_id = session.get('user_id')
+    if user_id:
+        # ログインユーザー: Supabaseに保存
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_db.save_user_task(user_id, {
+            'title': title,
+            'duration': duration,
+            'break_duration': break_duration,
+            'difficulty': difficulty,
+            'priority': 0,
+            'status': 'pending'
+        })
+    else:
+        # ゲスト: ローカルDBに保存
+        task = Task(
+            title=title,
+            category="",
+            difficulty=difficulty,
+            duration=duration,
+            break_duration=break_duration,
+            priority=0,
+            status="pending"
+        )
+        db.create_task(task)
     
-    selected_id = request.form.get('selected_playlist', type=int)
     return redirect(url_for('playlist', selected=selected_id))
 
 
@@ -414,10 +470,32 @@ def delete_moon_cycle(cycle_id):
 @app.route('/collection')
 def collection():
     """星座図鑑画面"""
+    user_id = session.get('user_id')
+    
     try:
+        # 全バッジ定義を取得
         badges = db.get_all_badges()
-        unlocked = [b for b in badges if b.unlocked_at]
-        locked = [b for b in badges if not b.unlocked_at]
+        
+        if user_id:
+            # ログインユーザー: Supabaseからバッジ獲得状況を取得
+            from moon_tasker.cloud.supabase_client import get_cloud_db
+            cloud_db = get_cloud_db()
+            cloud_badges = cloud_db.get_user_badges(user_id)
+            unlocked_names = {b.get('badge_name') for b in cloud_badges}
+            
+            # クラウドの獲得状況でローカルを上書き
+            unlocked = []
+            locked = []
+            for b in badges:
+                if b.name in unlocked_names:
+                    b.unlocked_at = True  # 仮設定
+                    unlocked.append(b)
+                else:
+                    locked.append(b)
+        else:
+            # ゲスト: ローカルDBの状態を使用
+            unlocked = [b for b in badges if b.unlocked_at]
+            locked = [b for b in badges if not b.unlocked_at]
         
         # カテゴリ分け
         categories = {}
@@ -856,7 +934,15 @@ def sync_upload():
                 'description': pl.description
             })
         
-        return jsonify({'success': True, 'tasks': len(local_tasks), 'playlists': len(local_playlists)})
+        # ローカルバッジをアップロード
+        local_badges = db.get_all_badges()
+        unlocked_badges = [b for b in local_badges if b.unlocked_at]
+        badge_count = 0
+        for badge in unlocked_badges:
+            if cloud_db.save_user_badge(user_id, badge.name):
+                badge_count += 1
+        
+        return jsonify({'success': True, 'tasks': len(local_tasks), 'playlists': len(local_playlists), 'badges': badge_count})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -898,7 +984,15 @@ def sync_download():
             )
             db.create_playlist(pl)
         
-        return jsonify({'success': True, 'tasks': len(cloud_tasks), 'playlists': len(cloud_playlists)})
+        # クラウドバッジをダウンロード
+        cloud_badges = cloud_db.get_user_badges(user_id)
+        print(f"[SYNC_DOWNLOAD] cloud_badges count: {len(cloud_badges)}")
+        for b in cloud_badges:
+            badge_name = b.get('badge_name', '')
+            if badge_name:
+                db.unlock_badge_by_name(badge_name)
+        
+        return jsonify({'success': True, 'tasks': len(cloud_tasks), 'playlists': len(cloud_playlists), 'badges': len(cloud_badges)})
     except Exception as e:
         print(f"[SYNC_DOWNLOAD] Error: {e}")
         return jsonify({'error': str(e)}), 500

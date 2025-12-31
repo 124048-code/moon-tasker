@@ -457,6 +457,52 @@ class SupabaseDB:
         except Exception as e:
             print(f"プレイリストタスク削除エラー: {e}")
         return False
+    
+    # === バッジ ===
+    
+    def get_user_badges(self, user_id: str) -> list:
+        """ユーザーの獲得済みバッジ一覧を取得"""
+        if not SUPABASE_URL:
+            return []
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_badges?user_id=eq.{user_id}&select=*"
+            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[GET_USER_BADGES] Status: {response.status_code}")
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(f"バッジ取得エラー: {e}")
+        return []
+    
+    def save_user_badge(self, user_id: str, badge_name: str) -> bool:
+        """バッジを保存（獲得記録）"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_badges"
+            headers = self._get_headers()
+            headers["Prefer"] = "return=minimal,resolution=merge-duplicates"
+            response = httpx.post(
+                url + "?on_conflict=user_id,badge_name",
+                headers=headers,
+                json={"user_id": user_id, "badge_name": badge_name},
+                timeout=10.0
+            )
+            print(f"[SAVE_USER_BADGE] {badge_name}: {response.status_code}")
+            return response.status_code in [200, 201, 204]
+        except Exception as e:
+            print(f"バッジ保存エラー: {e}")
+        return False
+    
+    def sync_all_badges(self, user_id: str, badge_names: list) -> int:
+        """複数バッジを一括同期"""
+        count = 0
+        for name in badge_names:
+            if self.save_user_badge(user_id, name):
+                count += 1
+        return count
 
 
 # シングルトンインスタンス
