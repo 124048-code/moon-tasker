@@ -117,6 +117,69 @@
     </div>
 </div>
 
+<!-- データ同期 -->
+<div class="card">
+    <h3 class="section-title">📦 データ同期</h3>
+    <p class="text-muted text-sm mb-4">タスクとプレイリストをクラウドに保存して、別の端末でも使えるようにします</p>
+
+    <div id="sync-status" class="mb-4 hidden"
+        style="padding: 12px; border-radius: 8px; background: rgba(76, 175, 80, 0.2);">
+        <p class="text-sm text-center"></p>
+    </div>
+
+    <div class="flex gap-2">
+        <button onclick="syncUpload()" class="btn btn-primary" style="flex: 1; padding: 12px;">
+            ⬆️ アップロード
+        </button>
+        <button onclick="syncDownload()" class="btn btn-secondary" style="flex: 1; padding: 12px;">
+            ⬇️ ダウンロード
+        </button>
+    </div>
+
+    <p class="text-xs text-muted mt-2 text-center">
+        ⬆️ ローカル→クラウド &nbsp; ⬇️ クラウド→ローカル
+    </p>
+</div>
+
+<script>
+    async function syncUpload() {
+        const status = document.getElementById('sync-status');
+        status.classList.remove('hidden');
+        status.querySelector('p').textContent = '⏳ アップロード中...';
+
+        try {
+            const res = await fetch('/sync/upload', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                status.querySelector('p').textContent = `✅ ${data.tasks}個のタスクと${data.playlists}個のプレイリストをアップロードしました`;
+            } else {
+                status.querySelector('p').textContent = `❌ エラー: ${data.error}`;
+            }
+        } catch (e) {
+            status.querySelector('p').textContent = '❌ 通信エラー';
+        }
+    }
+
+    async function syncDownload() {
+        const status = document.getElementById('sync-status');
+        status.classList.remove('hidden');
+        status.querySelector('p').textContent = '⏳ ダウンロード中...';
+
+        try {
+            const res = await fetch('/sync/download', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                status.querySelector('p').textContent = `✅ ${data.tasks}個のタスクと${data.playlists}個のプレイリストをダウンロードしました`;
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                status.querySelector('p').textContent = `❌ エラー: ${data.error}`;
+            }
+        } catch (e) {
+            status.querySelector('p').textContent = '❌ 通信エラー';
+        }
+    }
+</script>
+
 <!-- フレンド追加 -->
 <div class="card">
     <h3 class="section-title">➕ フレンドを追加</h3>

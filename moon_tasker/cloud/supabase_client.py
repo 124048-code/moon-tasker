@@ -283,6 +283,174 @@ class SupabaseDB:
     def get_friend_creature(self, friend_id: str) -> Optional[Dict[str, Any]]:
         """フレンドの生命体を取得"""
         return self.get_creature(friend_id)
+    
+    # === プレイリスト ===
+    
+    def get_user_playlists(self, user_id: str) -> list:
+        """ユーザーのプレイリスト一覧を取得"""
+        if not SUPABASE_URL:
+            return []
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_playlists?user_id=eq.{user_id}&select=*&order=created_at.desc"
+            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(f"プレイリスト取得エラー: {e}")
+        return []
+    
+    def save_user_playlist(self, user_id: str, playlist: Dict[str, Any]) -> Optional[str]:
+        """プレイリストを保存（作成/更新）"""
+        if not SUPABASE_URL:
+            return None
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_playlists"
+            headers = self._get_headers()
+            headers["Prefer"] = "return=representation"
+            
+            data = {
+                "user_id": user_id,
+                "name": playlist.get("name", ""),
+                "description": playlist.get("description", "")
+            }
+            
+            # IDがあれば更新、なければ作成
+            if playlist.get("id"):
+                url = f"{SUPABASE_URL}/rest/v1/user_playlists?id=eq.{playlist['id']}"
+                response = httpx.patch(url, headers=headers, json=data, timeout=10.0)
+            else:
+                response = httpx.post(url, headers=headers, json=data, timeout=10.0)
+            
+            if response.status_code in [200, 201]:
+                result = response.json()
+                return result[0]["id"] if result else None
+        except Exception as e:
+            print(f"プレイリスト保存エラー: {e}")
+        return None
+    
+    def delete_user_playlist(self, user_id: str, playlist_id: str) -> bool:
+        """プレイリストを削除"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_playlists?id=eq.{playlist_id}&user_id=eq.{user_id}"
+            response = httpx.delete(url, headers=self._get_headers(), timeout=10.0)
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"プレイリスト削除エラー: {e}")
+        return False
+    
+    # === タスク ===
+    
+    def get_user_tasks(self, user_id: str) -> list:
+        """ユーザーのタスク一覧を取得"""
+        if not SUPABASE_URL:
+            return []
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_tasks?user_id=eq.{user_id}&select=*&order=created_at.desc"
+            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(f"タスク取得エラー: {e}")
+        return []
+    
+    def save_user_task(self, user_id: str, task: Dict[str, Any]) -> Optional[str]:
+        """タスクを保存（作成/更新）"""
+        if not SUPABASE_URL:
+            return None
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_tasks"
+            headers = self._get_headers()
+            headers["Prefer"] = "return=representation"
+            
+            data = {
+                "user_id": user_id,
+                "title": task.get("title", ""),
+                "duration": task.get("duration", 25),
+                "break_duration": task.get("break_duration", 5),
+                "difficulty": task.get("difficulty", 3),
+                "priority": task.get("priority", 0),
+                "status": task.get("status", "pending")
+            }
+            
+            if task.get("id"):
+                url = f"{SUPABASE_URL}/rest/v1/user_tasks?id=eq.{task['id']}"
+                response = httpx.patch(url, headers=headers, json=data, timeout=10.0)
+            else:
+                response = httpx.post(url, headers=headers, json=data, timeout=10.0)
+            
+            if response.status_code in [200, 201]:
+                result = response.json()
+                return result[0]["id"] if result else None
+        except Exception as e:
+            print(f"タスク保存エラー: {e}")
+        return None
+    
+    def delete_user_task(self, user_id: str, task_id: str) -> bool:
+        """タスクを削除"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_tasks?id=eq.{task_id}&user_id=eq.{user_id}"
+            response = httpx.delete(url, headers=self._get_headers(), timeout=10.0)
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"タスク削除エラー: {e}")
+        return False
+    
+    # === プレイリストタスク関連 ===
+    
+    def get_playlist_tasks(self, playlist_id: str) -> list:
+        """プレイリスト内のタスクを取得"""
+        if not SUPABASE_URL:
+            return []
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=task_id,task_order,user_tasks(*)&order=task_order"
+            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(f"プレイリストタスク取得エラー: {e}")
+        return []
+    
+    def add_task_to_playlist(self, playlist_id: str, task_id: str, order: int = 0) -> bool:
+        """タスクをプレイリストに追加"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks"
+            response = httpx.post(
+                url,
+                headers=self._get_headers(),
+                json={"playlist_id": playlist_id, "task_id": task_id, "task_order": order},
+                timeout=10.0
+            )
+            return response.status_code in [200, 201]
+        except Exception as e:
+            print(f"プレイリストタスク追加エラー: {e}")
+        return False
+    
+    def remove_task_from_playlist(self, playlist_id: str, task_id: str) -> bool:
+        """タスクをプレイリストから削除"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&task_id=eq.{task_id}"
+            response = httpx.delete(url, headers=self._get_headers(), timeout=10.0)
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"プレイリストタスク削除エラー: {e}")
+        return False
 
 
 # シングルトンインスタンス

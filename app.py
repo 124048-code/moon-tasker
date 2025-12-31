@@ -773,6 +773,84 @@ def view_friend_creature(friend_id):
         return redirect(url_for('friends'))
 
 
+# ============ DATA SYNC ============
+
+@app.route('/sync/upload', methods=['POST'])
+def sync_upload():
+    """ローカルデータをSupabaseにアップロード"""
+    from moon_tasker.cloud.supabase_client import get_cloud_db
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    try:
+        cloud_db = get_cloud_db()
+        
+        # ローカルタスクをアップロード
+        local_tasks = db.get_all_tasks()
+        for task in local_tasks:
+            cloud_db.save_user_task(user_id, {
+                'title': task.title,
+                'duration': task.duration,
+                'break_duration': task.break_duration,
+                'difficulty': task.difficulty,
+                'priority': task.priority,
+                'status': task.status
+            })
+        
+        # ローカルプレイリストをアップロード
+        local_playlists = db.get_all_playlists()
+        for pl in local_playlists:
+            cloud_db.save_user_playlist(user_id, {
+                'name': pl.name,
+                'description': pl.description
+            })
+        
+        return jsonify({'success': True, 'tasks': len(local_tasks), 'playlists': len(local_playlists)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/sync/download', methods=['POST'])
+def sync_download():
+    """Supabaseからローカルにダウンロード"""
+    from moon_tasker.cloud.supabase_client import get_cloud_db
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    try:
+        cloud_db = get_cloud_db()
+        
+        # クラウドタスクをダウンロード
+        cloud_tasks = cloud_db.get_user_tasks(user_id)
+        for t in cloud_tasks:
+            task = Task(
+                title=t.get('title', ''),
+                duration=t.get('duration', 25),
+                break_duration=t.get('break_duration', 5),
+                difficulty=t.get('difficulty', 3),
+                priority=t.get('priority', 0),
+                status=t.get('status', 'pending')
+            )
+            db.create_task(task)
+        
+        # クラウドプレイリストをダウンロード
+        cloud_playlists = cloud_db.get_user_playlists(user_id)
+        for p in cloud_playlists:
+            pl = Playlist(
+                name=p.get('name', ''),
+                description=p.get('description', '')
+            )
+            db.create_playlist(pl)
+        
+        return jsonify({'success': True, 'tasks': len(cloud_tasks), 'playlists': len(cloud_playlists)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ============ ERROR HANDLERS ============
 
 @app.errorhandler(404)
