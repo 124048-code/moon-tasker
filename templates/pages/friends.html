@@ -19,6 +19,48 @@
     </div>
 </div>
 
+<!-- プロフィールカード -->
+<div class="card">
+    <h3 class="section-title">👤 マイプロフィール</h3>
+
+    <div class="flex items-center gap-4 mb-4">
+        <div
+            style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #7c4dff, #64b5f6); display: flex; align-items: center; justify-content: center;">
+            <span style="font-size: 28px;">🌙</span>
+        </div>
+        <div style="flex: 1;">
+            <p style="font-weight: 600; font-size: 18px;">{{ user_profile.nickname if user_profile else
+                user_email.split('@')[0] }}</p>
+            {% if user_profile and user_profile.constellation_badge %}
+            <p style="color: #ffc107; font-size: 14px;">✨ {{ user_profile.constellation_badge }}</p>
+            {% else %}
+            <p class="text-muted text-sm">称号未設定</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 称号選択 -->
+    {% if unlocked_badges|length > 0 %}
+    <form action="/friends/update-title" method="post" class="mt-4">
+        <label class="form-label text-sm">称号を選択</label>
+        <div class="flex gap-2">
+            <select name="title" class="form-select" style="flex: 1;">
+                <option value="">称号なし</option>
+                {% for badge in unlocked_badges %}
+                <option value="{{ badge.title }}" {% if user_profile and user_profile.constellation_badge==badge.title
+                    %}selected{% endif %}>
+                    {{ badge.title }}（{{ badge.constellation_name }}）
+                </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary" style="padding: 8px 16px;">設定</button>
+        </div>
+    </form>
+    {% else %}
+    <p class="text-muted text-sm mt-4">💡 星座図鑑でバッジを獲得すると称号を設定できます</p>
+    {% endif %}
+</div>
+
 <!-- マイフレンドコード -->
 <div class="card text-center">
     <p class="text-muted text-sm mb-2">あなたのフレンドコード</p>
@@ -32,11 +74,28 @@
 <div class="card">
     <div class="flex justify-between items-center">
         <div>
-            <h3 class="section-title" style="margin-bottom: 0;">🔄 生命体の同期</h3>
-            <p class="text-muted text-sm">フレンドに見せるために同期しよう</p>
+            <h3 class="section-title" style="margin-bottom: 0;">
+                {% if has_local_creature %}🔄 生命体の同期{% else %}🥚 生命体を育てよう{% endif %}
+            </h3>
+            <p class="text-muted text-sm">
+                {% if has_local_creature %}
+                フレンドに見せるために同期しよう
+                {% else %}
+                まずは生命体を育ててみよう！
+                {% endif %}
+            </p>
+            {% if local_creature and has_local_creature %}
+            <p class="text-sm mt-2" style="color: #64b5f6;">
+                現在: {{ local_creature.name }} (Lv.{{ local_creature.evolution_stage }})
+            </p>
+            {% endif %}
         </div>
-        <form action="/friends/sync-creature" method="post">
-            <button type="submit" class="btn btn-primary" style="padding: 8px 16px;">同期する</button>
+        <form action="{% if has_local_creature %}/friends/sync-creature{% else %}/creature{% endif %}"
+            method="{% if has_local_creature %}post{% else %}get{% endif %}">
+            <button type="submit" class="btn {% if has_local_creature %}btn-primary{% else %}btn-success{% endif %}"
+                style="padding: 8px 16px;">
+                {% if has_local_creature %}同期する{% else %}育てる{% endif %}
+            </button>
         </form>
     </div>
 </div>
@@ -63,15 +122,10 @@
     </div>
     {% else %}
     {% for friend in friends_list %}
-    <a href="/friends/{{ friend.id }}/creature" class="list-item" style="text-decoration: none; color: inherit;">
-        <span style="font-size: 24px;">
-            {% if friend.creature %}🐰{% else %}🥚{% endif %}
-        </span>
+    <a href="/friends/{{ friend.friend_id }}/creature" class="list-item" style="text-decoration: none; color: inherit;">
+        <span style="font-size: 24px;">🐰</span>
         <div style="flex: 1;">
-            <p style="font-weight: 500;">{{ friend.nickname or '名無し' }}</p>
-            {% if friend.creature %}
-            <p class="text-muted text-xs">Lv.{{ friend.creature.evolution_stage }} {{ friend.creature.name }}</p>
-            {% endif %}
+            <p style="font-weight: 500;">{{ friend.nickname or 'フレンド' }}</p>
         </div>
         <span class="text-muted">→</span>
     </a>

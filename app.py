@@ -503,7 +503,29 @@ def friends():
     friends_list = []
     pending_requests = []
     my_friend_code = None
-    my_creature = None
+    my_creature_cloud = None
+    
+    # ローカルの生命体を取得
+    local_creature = creature_system.get_creature()
+    has_local_creature = local_creature and local_creature.status in ['active', 'completed']
+    
+    # 獲得済みバッジ（称号選択用）
+    unlocked_badges = []
+    try:
+        from moon_tasker.logic.titles import get_title_for_constellation
+        all_badges = db.get_all_badges()
+        for b in all_badges:
+            if b.unlocked_at:
+                # 称号を追加（辞書に変換）
+                badge_dict = {
+                    'id': b.id,
+                    'name': b.name,
+                    'constellation_name': b.constellation_name,
+                    'title': get_title_for_constellation(b.constellation_name)
+                }
+                unlocked_badges.append(badge_dict)
+    except Exception as e:
+        print(f"Badge title error: {e}")
     
     if is_logged_in:
         try:
@@ -519,10 +541,8 @@ def friends():
             # フレンド一覧取得
             friends_list = cloud_db.get_friends(user_id) or []
             
-            # 自分の生命体取得
-            creature_data = cloud_db.get_creature(user_id)
-            if creature_data:
-                my_creature = creature_data
+            # クラウドの生命体取得
+            my_creature_cloud = cloud_db.get_creature(user_id)
         except Exception as e:
             print(f"Friend data error: {e}")
     
@@ -532,7 +552,10 @@ def friends():
                          friends_list=friends_list,
                          pending_requests=pending_requests,
                          my_friend_code=my_friend_code,
-                         my_creature=my_creature,
+                         my_creature_cloud=my_creature_cloud,
+                         local_creature=local_creature,
+                         has_local_creature=has_local_creature,
+                         unlocked_badges=unlocked_badges,
                          user_email=session.get('user_email'))
 
 
@@ -640,25 +663,48 @@ def sync_creature():
     
     user_id = session.get('user_id')
     if not user_id:
-        return jsonify({'error': 'Not logged in'}), 401
+        return redirect(url_for('friends'))
+    
+    creature = creature_system.get_creature()
+    if not creature or creature.status not in ['active', 'completed']:
+        # 生命体がいない場合は育成画面へ
+        return redirect(url_for('creature'))
     
     try:
-        creature = creature_system.get_creature()
-        if creature:
-            cloud_db = get_cloud_db()
-            creature_data = {
-                'name': creature.name,
-                'mood': creature.mood,
-                'energy': creature.energy,
-                'evolution_stage': creature.evolution_stage,
-                'status': creature.status
-            }
-            cloud_db.save_creature(user_id, creature_data)
-            return jsonify({'success': True})
+        cloud_db = get_cloud_db()
+        creature_data = {
+            'name': creature.name,
+            'mood': creature.mood,
+            'energy': creature.energy,
+            'evolution_stage': creature.evolution_stage,
+            'status': creature.status
+        }
+        cloud_db.save_creature(user_id, creature_data)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Sync creature error: {e}")
     
-    return jsonify({'error': 'No creature'}), 404
+    return redirect(url_for('friends'))
+
+
+@app.route('/friends/update-title', methods=['POST'])
+def update_title():
+    """称号を更新"""
+    from moon_tasker.cloud.supabase_client import get_cloud_db
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect(url_for('friends'))
+    
+    title = request.form.get('title', '')
+    
+    try:
+        cloud_db = get_cloud_db()
+        # プロフィールの称号を更新
+        cloud_db.upsert_profile(user_id, session.get('user_email', '').split('@')[0], title)
+    except Exception as e:
+        print(f"Update title error: {e}")
+    
+    return redirect(url_for('friends'))
 
 
 @app.route('/friends/<friend_id>/creature')
