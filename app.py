@@ -495,69 +495,206 @@ def start_creature():
 @app.route('/friends')
 def friends():
     """フレンド画面"""
-    is_logged_in = False
+    from moon_tasker.cloud.supabase_client import get_auth, get_cloud_db
+    
+    auth = get_auth()
+    is_logged_in = session.get('user_id') is not None
     user_profile = None
     friends_list = []
+    pending_requests = []
+    my_friend_code = None
+    my_creature = None
     
-    try:
-        from moon_tasker.cloud.supabase_client import SupabaseAuth
-        auth = SupabaseAuth()
-        is_logged_in = auth.current_user is not None
-        
-        if is_logged_in:
-            user_profile = auth.get_profile()
-            friends_list = auth.get_friends()
-    except Exception:
-        pass
+    if is_logged_in:
+        try:
+            cloud_db = get_cloud_db()
+            user_id = session.get('user_id')
+            
+            # プロフィール取得
+            user_profile = cloud_db.get_profile(user_id)
+            
+            # フレンドコード（ユーザーID短縮版）
+            my_friend_code = user_id[:8].upper() if user_id else None
+            
+            # フレンド一覧取得
+            friends_list = cloud_db.get_friends(user_id) or []
+            
+            # 自分の生命体取得
+            creature_data = cloud_db.get_creature(user_id)
+            if creature_data:
+                my_creature = creature_data
+        except Exception as e:
+            print(f"Friend data error: {e}")
     
     return render_template('pages/friends.html',
                          is_logged_in=is_logged_in,
                          user_profile=user_profile,
-                         friends_list=friends_list)
+                         friends_list=friends_list,
+                         pending_requests=pending_requests,
+                         my_friend_code=my_friend_code,
+                         my_creature=my_creature,
+                         user_email=session.get('user_email'))
 
 
 @app.route('/friends/login', methods=['POST'])
 def friends_login():
     """ログイン処理"""
+    from moon_tasker.cloud.supabase_client import get_auth
+    
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+    
+    if not email or not password:
+        return render_template('partials/login_error.html', error='メールとパスワードを入力してください')
+    
     try:
-        from moon_tasker.cloud.supabase_client import SupabaseAuth
-        auth = SupabaseAuth()
-        email = request.form.get('email')
-        password = request.form.get('password')
+        auth = get_auth()
         result = auth.sign_in_with_email(email, password)
+        
         if result.get('error'):
             return render_template('partials/login_error.html', error=result['error'])
-    except Exception:
-        pass
+        
+        # セッションにユーザー情報を保存
+        session['user_id'] = auth.user_id
+        session['user_email'] = email
+        session['access_token'] = auth._access_token
+        
+    except Exception as e:
+        return render_template('partials/login_error.html', error=f'ログインエラー: {str(e)}')
+    
     return redirect(url_for('friends'))
 
 
 @app.route('/friends/signup', methods=['POST'])
 def friends_signup():
     """新規登録処理"""
+    from moon_tasker.cloud.supabase_client import get_auth, get_cloud_db
+    
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+    nickname = request.form.get('nickname', '').strip() or email.split('@')[0]
+    
+    if not email or not password:
+        return render_template('partials/login_error.html', error='メールとパスワードを入力してください')
+    
+    if len(password) < 6:
+        return render_template('partials/login_error.html', error='パスワードは6文字以上にしてください')
+    
     try:
-        from moon_tasker.cloud.supabase_client import SupabaseAuth
-        auth = SupabaseAuth()
-        email = request.form.get('email')
-        password = request.form.get('password')
+        auth = get_auth()
         result = auth.sign_up_with_email(email, password)
+        
         if result.get('error'):
             return render_template('partials/login_error.html', error=result['error'])
-    except Exception:
-        pass
+        
+        # プロフィール作成
+        if auth.user_id:
+            cloud_db = get_cloud_db()
+            cloud_db.upsert_profile(auth.user_id, nickname)
+            
+            session['user_id'] = auth.user_id
+            session['user_email'] = email
+            session['access_token'] = auth._access_token
+        
+    except Exception as e:
+        return render_template('partials/login_error.html', error=f'登録エラー: {str(e)}')
+    
     return redirect(url_for('friends'))
 
 
 @app.route('/friends/logout', methods=['POST'])
 def friends_logout():
     """ログアウト処理"""
-    try:
-        from moon_tasker.cloud.supabase_client import SupabaseAuth
-        auth = SupabaseAuth()
-        auth.sign_out()
-    except Exception:
-        pass
+    session.clear()
     return redirect(url_for('friends'))
+
+
+@app.route('/friends/add', methods=['POST'])
+def add_friend():
+    """フレンド追加（コードで検索）"""
+    from moon_tasker.cloud.supabase_client import get_cloud_db
+    
+    friend_code = request.form.get('friend_code', '').strip().lower()
+    user_id = session.get('user_id')
+    
+    if not user_id:
+        return redirect(url_for('friends'))
+    
+    if not friend_code:
+        return redirect(url_for('friends'))
+    
+    try:
+        cloud_db = get_cloud_db()
+        # フレンドコードで検索（簡易版：IDの先頭8文字）
+        result = cloud_db.send_friend_request(user_id, friend_code)
+    except Exception as e:
+        print(f"Add friend error: {e}")
+    
+    return redirect(url_for('friends'))
+
+
+@app.route('/friends/sync-creature', methods=['POST'])
+def sync_creature():
+    """生命体をクラウドに同期"""
+    from moon_tasker.cloud.supabase_client import get_cloud_db
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    try:
+        creature = creature_system.get_creature()
+        if creature:
+            cloud_db = get_cloud_db()
+            creature_data = {
+                'name': creature.name,
+                'mood': creature.mood,
+                'energy': creature.energy,
+                'evolution_stage': creature.evolution_stage,
+                'status': creature.status
+            }
+            cloud_db.save_creature(user_id, creature_data)
+            return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    return jsonify({'error': 'No creature'}), 404
+
+
+@app.route('/friends/<friend_id>/creature')
+def view_friend_creature(friend_id):
+    """フレンドの生命体を閲覧"""
+    from moon_tasker.cloud.supabase_client import get_cloud_db
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect(url_for('friends'))
+    
+    try:
+        cloud_db = get_cloud_db()
+        friend_creature = cloud_db.get_friend_creature(friend_id)
+        friend_profile = cloud_db.get_profile(friend_id)
+        
+        # 生命体画像を決定
+        creature_image = None
+        if friend_creature:
+            stage = friend_creature.get('evolution_stage', 1)
+            mood = friend_creature.get('mood', 50)
+            if mood >= 70:
+                emotion = 'happy'
+            elif mood >= 40:
+                emotion = 'content'
+            else:
+                emotion = 'sad'
+            creature_image = f'/static/images/creature/stage{stage}_{emotion}.png'
+        
+        return render_template('pages/friend_creature.html',
+                             friend_creature=friend_creature,
+                             friend_profile=friend_profile,
+                             creature_image=creature_image)
+    except Exception as e:
+        print(f"View friend creature error: {e}")
+        return redirect(url_for('friends'))
 
 
 # ============ ERROR HANDLERS ============

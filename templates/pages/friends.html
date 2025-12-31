@@ -3,107 +3,162 @@
 {% block title %}フレンド - Moon Tasker{% endblock %}
 
 {% block content %}
-<h1 class="page-title">フレンド 👥</h1>
+<h1 class="page-title">フレンド 🌙</h1>
 
 {% if is_logged_in %}
-<!-- ログイン済み -->
-
-<div class="card">
-    <h2 class="section-title">👤 あなたのプロフィール</h2>
-    {% if user_profile %}
-    <div class="flex items-center gap-4">
-        <div
-            style="width: 64px; height: 64px; background: linear-gradient(135deg, #7c4dff, #ff6b9d); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px;">
-            👤
-        </div>
+<!-- ログイン中 -->
+<div class="card" style="border-left: 4px solid #4caf50;">
+    <div class="flex justify-between items-center">
         <div>
-            <p style="font-weight: 600; font-size: 18px;">{{ user_profile.display_name or 'ユーザー' }}</p>
-            <p class="text-muted text-sm">ID: {{ user_profile.friend_code or '未設定' }}</p>
+            <p class="text-sm text-muted">ログイン中</p>
+            <p style="font-weight: 600;">{{ user_email }}</p>
         </div>
+        <form action="/friends/logout" method="post">
+            <button type="submit" class="btn btn-secondary" style="padding: 8px 16px;">ログアウト</button>
+        </form>
     </div>
-    {% endif %}
 </div>
 
+<!-- マイフレンドコード -->
+<div class="card text-center">
+    <p class="text-muted text-sm mb-2">あなたのフレンドコード</p>
+    <p style="font-size: 28px; font-weight: 700; font-family: monospace; letter-spacing: 0.1em; color: #ffc107;">
+        {{ my_friend_code or '--------' }}
+    </p>
+    <p class="text-xs text-muted mt-2">友達にこのコードを共有しよう！</p>
+</div>
+
+<!-- 生命体同期 -->
 <div class="card">
-    <h2 class="section-title">👥 フレンド一覧</h2>
+    <div class="flex justify-between items-center">
+        <div>
+            <h3 class="section-title" style="margin-bottom: 0;">🔄 生命体の同期</h3>
+            <p class="text-muted text-sm">フレンドに見せるために同期しよう</p>
+        </div>
+        <form action="/friends/sync-creature" method="post">
+            <button type="submit" class="btn btn-primary" style="padding: 8px 16px;">同期する</button>
+        </form>
+    </div>
+</div>
+
+<!-- フレンド追加 -->
+<div class="card">
+    <h3 class="section-title">➕ フレンドを追加</h3>
+    <form action="/friends/add" method="post" class="flex gap-2">
+        <input type="text" name="friend_code" placeholder="フレンドコード（8文字）" class="form-input"
+            style="flex: 1; text-transform: uppercase;" maxlength="8">
+        <button type="submit" class="btn btn-success">追加</button>
+    </form>
+</div>
+
+<!-- フレンド一覧 -->
+<div class="card">
+    <h3 class="section-title">👥 フレンド一覧</h3>
 
     {% if friends_list|length == 0 %}
     <div class="text-center" style="padding: 32px;">
-        <span style="font-size: 48px;">👥</span>
+        <span style="font-size: 48px;">🌙</span>
         <p class="text-muted mt-4">まだフレンドがいません</p>
+        <p class="text-xs text-muted mt-2">フレンドコードを交換して追加しよう！</p>
     </div>
     {% else %}
     {% for friend in friends_list %}
-    <div class="list-item">
-        <div
-            style="width: 48px; height: 48px; background: linear-gradient(135deg, #00bcd4, #64b5f6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px;">
-            👤
-        </div>
+    <a href="/friends/{{ friend.id }}/creature" class="list-item" style="text-decoration: none; color: inherit;">
+        <span style="font-size: 24px;">
+            {% if friend.creature %}🐰{% else %}🥚{% endif %}
+        </span>
         <div style="flex: 1;">
-            <p style="font-weight: 500;">{{ friend.display_name or 'フレンド' }}</p>
-            <p class="text-muted text-sm">累計タスク: {{ friend.total_tasks or 0 }}</p>
+            <p style="font-weight: 500;">{{ friend.nickname or '名無し' }}</p>
+            {% if friend.creature %}
+            <p class="text-muted text-xs">Lv.{{ friend.creature.evolution_stage }} {{ friend.creature.name }}</p>
+            {% endif %}
         </div>
-    </div>
+        <span class="text-muted">→</span>
+    </a>
     {% endfor %}
     {% endif %}
 </div>
 
-<div class="card">
-    <h2 class="section-title">➕ フレンドを追加</h2>
-    <form action="/friends/add" method="post" class="flex gap-4">
-        <input type="text" name="friend_code" placeholder="フレンドコードを入力" class="form-input" style="flex: 1;">
-        <button type="submit" class="btn btn-primary">追加</button>
-    </form>
-</div>
-
-<div class="text-center">
-    <form action="/friends/logout" method="post">
-        <button type="submit" class="text-muted" style="background: none; border: none; cursor: pointer;">ログアウト</button>
-    </form>
-</div>
-
 {% else %}
-<!-- 未ログイン -->
-
-<div class="card text-center" style="padding: 48px;">
-    <span style="font-size: 64px;">👥</span>
-    <h2 class="page-title mt-4">フレンド機能を使う</h2>
-    <p class="text-muted mt-2">ログインしてフレンドと進捗を共有しましょう！</p>
-</div>
-
+<!-- ログインフォーム -->
 <div class="card">
-    <h2 class="section-title">🔐 ログイン</h2>
+    <h2 class="section-title">🔐 ログイン / 新規登録</h2>
+    <p class="text-muted text-sm mb-6">
+        アカウントを作成すると、フレンドと生命体を見せ合えます！<br>
+        ログインなしでも通常機能は使えます。
+    </p>
 
-    <form action="/friends/login" method="post">
-        <div class="form-group">
-            <input type="email" name="email" placeholder="メールアドレス" required class="form-input">
-        </div>
-        <div class="form-group">
-            <input type="password" name="password" placeholder="パスワード" required class="form-input">
-        </div>
-        <button type="submit" class="btn btn-primary w-full">ログイン</button>
-    </form>
+    <div id="login-error"></div>
 
-    <div style="position: relative; margin: 24px 0;">
-        <div style="border-top: 1px solid var(--color-border); position: absolute; inset: 0; top: 50%;"></div>
-        <div style="position: relative; text-align: center;">
-            <span class="text-muted text-sm" style="background: rgba(30, 58, 95, 0.6); padding: 0 16px;">または</span>
-        </div>
+    <!-- ログインタブ -->
+    <div class="flex gap-2 mb-4">
+        <button onclick="showTab('login')" id="tab-login" class="btn btn-primary" style="flex: 1;">ログイン</button>
+        <button onclick="showTab('signup')" id="tab-signup" class="btn btn-secondary" style="flex: 1;">新規登録</button>
     </div>
 
-    <form action="/friends/signup" method="post">
-        <div class="form-group">
-            <input type="email" name="email" placeholder="メールアドレス" required class="form-input">
+    <!-- ログインフォーム -->
+    <form id="form-login" action="/friends/login" method="post" hx-post="/friends/login" hx-target="#login-error"
+        hx-swap="innerHTML">
+        <div class="form-group mb-4">
+            <label class="form-label">メールアドレス</label>
+            <input type="email" name="email" placeholder="example@mail.com" required class="form-input">
         </div>
-        <div class="form-group">
-            <input type="password" name="password" placeholder="パスワード（6文字以上）" required class="form-input">
+        <div class="form-group mb-4">
+            <label class="form-label">パスワード</label>
+            <input type="password" name="password" placeholder="••••••" required class="form-input">
         </div>
-        <button type="submit" class="btn btn-secondary w-full">新規登録</button>
+        <button type="submit" class="btn btn-success w-full">ログイン</button>
+    </form>
+
+    <!-- 新規登録フォーム -->
+    <form id="form-signup" action="/friends/signup" method="post" class="hidden" hx-post="/friends/signup"
+        hx-target="#login-error" hx-swap="innerHTML">
+        <div class="form-group mb-4">
+            <label class="form-label">ニックネーム（任意）</label>
+            <input type="text" name="nickname" placeholder="表示名" class="form-input">
+        </div>
+        <div class="form-group mb-4">
+            <label class="form-label">メールアドレス</label>
+            <input type="email" name="email" placeholder="example@mail.com" required class="form-input">
+        </div>
+        <div class="form-group mb-4">
+            <label class="form-label">パスワード（6文字以上）</label>
+            <input type="password" name="password" placeholder="••••••" minlength="6" required class="form-input">
+        </div>
+        <button type="submit" class="btn btn-success w-full">新規登録</button>
     </form>
 </div>
 
-<div class="text-center">
-    <a href="/" class="text-muted">← オフラインで続ける</a>
+<!-- ゲストモード説明 -->
+<div class="card" style="background: rgba(255, 193, 7, 0.1); border-color: rgba(255, 193, 7, 0.3);">
+    <h3 class="section-title" style="color: #ffc107;">💡 ゲストモードについて</h3>
+    <p class="text-sm">
+        ログインなしでもアプリの全機能が使えます！<br>
+        データはこの端末にのみ保存されます。<br><br>
+        フレンド機能やデータのバックアップを使いたい場合は、<br>
+        上のフォームからアカウントを作成してください。
+    </p>
 </div>
+
+<script>
+    function showTab(tab) {
+        const loginForm = document.getElementById('form-login');
+        const signupForm = document.getElementById('form-signup');
+        const tabLogin = document.getElementById('tab-login');
+        const tabSignup = document.getElementById('tab-signup');
+
+        if (tab === 'login') {
+            loginForm.classList.remove('hidden');
+            signupForm.classList.add('hidden');
+            tabLogin.className = 'btn btn-primary';
+            tabSignup.className = 'btn btn-secondary';
+        } else {
+            loginForm.classList.add('hidden');
+            signupForm.classList.remove('hidden');
+            tabLogin.className = 'btn btn-secondary';
+            tabSignup.className = 'btn btn-primary';
+        }
+    }
+</script>
 {% endif %}
 {% endblock %}

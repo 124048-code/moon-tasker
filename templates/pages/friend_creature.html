@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}フレンドの生命体 - Moon Tasker{% endblock %}
+
+{% block content %}
+<a href="/friends" class="text-muted mb-4" style="display: inline-block;">← フレンド一覧に戻る</a>
+
+<h1 class="page-title">{{ friend_profile.nickname or '名無し' }}さんの生命体</h1>
+
+{% if friend_creature %}
+<div class="card text-center" style="padding: 40px;">
+    {% if creature_image %}
+    <img src="{{ creature_image }}" alt="生命体" style="width: 150px; height: 150px; object-fit: contain; margin: 0 auto;">
+    {% else %}
+    <span style="font-size: 80px; display: block;">🥚</span>
+    {% endif %}
+
+    <h2 style="font-size: 24px; font-weight: 700; margin-top: 16px;">{{ friend_creature.name }}</h2>
+    <p class="text-muted">Lv.{{ friend_creature.evolution_stage }}</p>
+
+    <div class="mt-4">
+        <div class="flex justify-between text-sm text-muted mb-2">
+            <span>機嫌</span>
+            <span>{{ friend_creature.mood }}%</span>
+        </div>
+        <div class="progress-bar" style="max-width: 300px; margin: 0 auto;">
+            <div class="progress-bar-fill 
+                {% if friend_creature.mood >= 70 %}mood-high
+                {% elif friend_creature.mood >= 40 %}mood-medium
+                {% else %}mood-low{% endif %}" style="width: {{ friend_creature.mood }}%;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 class="section-title">📊 ステータス</h3>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <p class="stat-value purple">{{ friend_creature.evolution_stage }}</p>
+            <p class="stat-label">進化段階</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value green">{{ friend_creature.energy }}</p>
+            <p class="stat-label">エネルギー</p>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card text-center" style="padding: 48px;">
+    <span style="font-size: 64px;">🌙</span>
+    <p class="text-muted mt-4">このフレンドはまだ生命体を育てていません</p>
+</div>
+{% endif %}
+{% endblock %}
