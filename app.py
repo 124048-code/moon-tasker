@@ -590,6 +590,19 @@ def friends_login():
         session['user_email'] = email
         session['access_token'] = auth._access_token
         
+        # プロフィールからニックネームを取得
+        try:
+            from moon_tasker.cloud.supabase_client import get_cloud_db
+            cloud_db = get_cloud_db()
+            profile = cloud_db.get_profile(auth.user_id)
+            if profile:
+                session['user_nickname'] = profile.get('nickname', '') or email.split('@')[0]
+                session['user_title'] = profile.get('constellation_badge', '')
+            else:
+                session['user_nickname'] = email.split('@')[0]
+        except:
+            session['user_nickname'] = email.split('@')[0]
+        
     except Exception as e:
         return render_template('partials/login_error.html', error=f'ログインエラー: {str(e)}')
     
