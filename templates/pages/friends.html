@@ -186,9 +186,32 @@
     <form action="/friends/add" method="post" class="flex gap-2">
         <input type="text" name="friend_code" placeholder="フレンドコード（8文字）" class="form-input"
             style="flex: 1; text-transform: uppercase;" maxlength="8">
-        <button type="submit" class="btn btn-success">追加</button>
+        <button type="submit" class="btn btn-success">リクエスト送信</button>
     </form>
 </div>
+
+<!-- 承認待ちリクエスト -->
+{% if pending_requests|length > 0 %}
+<div class="card">
+    <h3 class="section-title">📥 フレンドリクエスト <span style="color: #ff6b9d;">({{ pending_requests|length }})</span></h3>
+    {% for req in pending_requests %}
+    <div class="list-item" style="margin-bottom: 8px;">
+        <div style="flex: 1;">
+            <span style="font-weight: 600;">{{ req.from_nickname }}</span>
+            <span class="text-muted text-xs"> からのリクエスト</span>
+        </div>
+        <div class="flex gap-2">
+            <form action="/friends/accept/{{ req.id }}" method="post" style="display: inline;">
+                <button type="submit" class="btn btn-success" style="padding: 8px 16px; font-size: 12px;">承認</button>
+            </form>
+            <form action="/friends/reject/{{ req.id }}" method="post" style="display: inline;">
+                <button type="submit" class="btn btn-secondary" style="padding: 8px 16px; font-size: 12px;">拒否</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 <!-- フレンド一覧 -->
 <div class="card">

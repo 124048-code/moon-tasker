@@ -667,8 +667,11 @@ def friends():
             # フレンドコード（ユーザーID短縮版）
             my_friend_code = user_id[:8].upper() if user_id else None
             
-            # フレンド一覧取得
-            friends_list = cloud_db.get_friends(user_id) or []
+            # フレンド一覧取得（承認済み）
+            friends_list = cloud_db.get_friends_list(user_id) or []
+            
+            # 承認待ちリクエスト取得
+            pending_requests = cloud_db.get_pending_requests(user_id) or []
             
             # クラウドの生命体取得
             my_creature_cloud = cloud_db.get_creature(user_id)
@@ -796,6 +799,42 @@ def add_friend():
         result = cloud_db.send_friend_request(user_id, friend_code)
     except Exception as e:
         print(f"Add friend error: {e}")
+    
+    return redirect(url_for('friends'))
+
+
+@app.route('/friends/accept/<request_id>', methods=['POST'])
+def accept_friend(request_id):
+    """フレンドリクエストを承認"""
+    from moon_tasker.cloud.supabase_client import get_cloud_db
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect(url_for('friends'))
+    
+    try:
+        cloud_db = get_cloud_db()
+        cloud_db.accept_friend_request(request_id, user_id)
+    except Exception as e:
+        print(f"Accept friend error: {e}")
+    
+    return redirect(url_for('friends'))
+
+
+@app.route('/friends/reject/<request_id>', methods=['POST'])
+def reject_friend(request_id):
+    """フレンドリクエストを拒否"""
+    from moon_tasker.cloud.supabase_client import get_cloud_db
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect(url_for('friends'))
+    
+    try:
+        cloud_db = get_cloud_db()
+        cloud_db.reject_friend_request(request_id, user_id)
+    except Exception as e:
+        print(f"Reject friend error: {e}")
     
     return redirect(url_for('friends'))
 

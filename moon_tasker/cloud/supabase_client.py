@@ -508,7 +508,152 @@ class SupabaseDB:
             if self.save_user_badge(user_id, name):
                 count += 1
         return count
-
+    
+    # === フレンドリクエスト ===
+    
+    def find_user_by_code(self, friend_code: str) -> Optional[Dict]:
+        """フレンドコードでユーザーを検索（UUIDの先頭8文字）"""
+        if not SUPABASE_URL:
+            return None
+        
+        try:
+            # プロフィールテーブルからuser_idの先頭8文字で検索
+            url = f"{SUPABASE_URL}/rest/v1/profiles?select=*"
+            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[FIND_USER] Status: {response.status_code}")
+            if response.status_code == 200:
+                profiles = response.json()
+                for p in profiles:
+                    uid = p.get('user_id', '')
+                    if uid and uid[:8].lower() == friend_code.lower():
+                        return p
+        except Exception as e:
+            print(f"ユーザー検索エラー: {e}")
+        return None
+    
+    def send_friend_request(self, from_user_id: str, friend_code: str) -> bool:
+        """フレンドリクエストを送信"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            # フレンドコードでユーザーを検索
+            target_user = self.find_user_by_code(friend_code)
+            if not target_user:
+                print(f"[SEND_FRIEND_REQUEST] User not found: {friend_code}")
+                return False
+            
+            to_user_id = target_user.get('user_id')
+            if to_user_id == from_user_id:
+                print("[SEND_FRIEND_REQUEST] Cannot add self")
+                return False
+            
+            url = f"{SUPABASE_URL}/rest/v1/friend_requests"
+            headers = self._get_headers()
+            headers["Prefer"] = "return=minimal,resolution=ignore-duplicates"
+            response = httpx.post(
+                url + "?on_conflict=from_user_id,to_user_id",
+                headers=headers,
+                json={"from_user_id": from_user_id, "to_user_id": to_user_id, "status": "pending"},
+                timeout=10.0
+            )
+            print(f"[SEND_FRIEND_REQUEST] Status: {response.status_code}")
+            return response.status_code in [200, 201, 204]
+        except Exception as e:
+            print(f"フレンドリクエスト送信エラー: {e}")
+        return False
+    
+    def get_pending_requests(self, user_id: str) -> list:
+        """受信したフレンドリクエストを取得"""
+        if not SUPABASE_URL:
+            return []
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/friend_requests?to_user_id=eq.{user_id}&status=eq.pending&select=*"
+            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            if response.status_code == 200:
+                requests = response.json()
+                # 送信者のプロフィールを取得して追加
+                for req in requests:
+                    from_id = req.get('from_user_id')
+                    profile = self.get_profile(from_id)
+                    req['from_nickname'] = profile.get('nickname', 'Unknown') if profile else 'Unknown'
+                return requests
+        except Exception as e:
+            print(f"リクエスト取得エラー: {e}")
+        return []
+    
+    def accept_friend_request(self, request_id: str, user_id: str) -> bool:
+        """フレンドリクエストを承認"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            # リクエストを承認に更新
+            url = f"{SUPABASE_URL}/rest/v1/friend_requests?id=eq.{request_id}&to_user_id=eq.{user_id}"
+            response = httpx.patch(
+                url,
+                headers=self._get_headers(),
+                json={"status": "accepted"},
+                timeout=10.0
+            )
+            print(f"[ACCEPT_FRIEND] Status: {response.status_code}")
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"承認エラー: {e}")
+        return False
+    
+    def reject_friend_request(self, request_id: str, user_id: str) -> bool:
+        """フレンドリクエストを拒否"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/friend_requests?id=eq.{request_id}&to_user_id=eq.{user_id}"
+            response = httpx.delete(url, headers=self._get_headers(), timeout=10.0)
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"拒否エラー: {e}")
+        return False
+    
+    def get_friends_list(self, user_id: str) -> list:
+        """承認済みフレンド一覧を取得"""
+        if not SUPABASE_URL:
+            return []
+        
+        try:
+            # 自分が送信して承認されたもの + 自分が受信して承認したもの
+            url1 = f"{SUPABASE_URL}/rest/v1/friend_requests?from_user_id=eq.{user_id}&status=eq.accepted&select=*"
+            url2 = f"{SUPABASE_URL}/rest/v1/friend_requests?to_user_id=eq.{user_id}&status=eq.accepted&select=*"
+            
+            friends = []
+            
+            r1 = httpx.get(url1, headers=self._get_headers(), timeout=10.0)
+            if r1.status_code == 200:
+                for req in r1.json():
+                    friend_id = req.get('to_user_id')
+                    profile = self.get_profile(friend_id)
+                    friends.append({
+                        'friend_id': friend_id,
+                        'nickname': profile.get('nickname', 'Unknown') if profile else 'Unknown',
+                        'title': profile.get('constellation_badge', '') if profile else ''
+                    })
+            
+            r2 = httpx.get(url2, headers=self._get_headers(), timeout=10.0)
+            if r2.status_code == 200:
+                for req in r2.json():
+                    friend_id = req.get('from_user_id')
+                    profile = self.get_profile(friend_id)
+                    friends.append({
+                        'friend_id': friend_id,
+                        'nickname': profile.get('nickname', 'Unknown') if profile else 'Unknown',
+                        'title': profile.get('constellation_badge', '') if profile else ''
+                    })
+            
+            return friends
+        except Exception as e:
+            print(f"フレンド一覧取得エラー: {e}")
+        return []
 
 # シングルトンインスタンス
 _auth_instance: Optional[SupabaseAuth] = None
