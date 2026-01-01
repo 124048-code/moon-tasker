@@ -247,21 +247,39 @@ def create_playlist():
 @app.route('/playlist/<int:playlist_id>/delete', methods=['POST'])
 def delete_playlist(playlist_id):
     """プレイリスト削除"""
-    db.delete_playlist(playlist_id)
+    user_id = session.get('user_id')
+    if user_id:
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_db.delete_user_playlist(user_id, str(playlist_id))
+    else:
+        db.delete_playlist(playlist_id)
     return redirect(url_for('playlist'))
 
 
-@app.route('/playlist/<int:playlist_id>/add/<int:task_id>', methods=['POST'])
+@app.route('/playlist/<playlist_id>/add/<task_id>', methods=['POST'])
 def add_to_playlist(playlist_id, task_id):
     """タスクをプレイリストに追加"""
-    db.add_task_to_playlist(playlist_id, task_id)
+    user_id = session.get('user_id')
+    if user_id:
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_db.add_task_to_playlist(playlist_id, task_id, 0)
+    else:
+        db.add_task_to_playlist(int(playlist_id), int(task_id))
     return redirect(url_for('playlist', selected=playlist_id))
 
 
-@app.route('/playlist/<int:playlist_id>/remove/<int:task_id>', methods=['POST'])
+@app.route('/playlist/<playlist_id>/remove/<task_id>', methods=['POST'])
 def remove_from_playlist(playlist_id, task_id):
     """タスクをプレイリストから削除"""
-    db.remove_task_from_playlist(playlist_id, task_id)
+    user_id = session.get('user_id')
+    if user_id:
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_db.remove_task_from_playlist(playlist_id, task_id)
+    else:
+        db.remove_task_from_playlist(int(playlist_id), int(task_id))
     return redirect(url_for('playlist', selected=playlist_id))
 
 
@@ -350,7 +368,7 @@ def create_task():
         # ログインユーザー: Supabaseに保存
         from moon_tasker.cloud.supabase_client import get_cloud_db
         cloud_db = get_cloud_db()
-        cloud_db.save_user_task(user_id, {
+        task_id = cloud_db.save_user_task(user_id, {
             'title': title,
             'duration': duration,
             'break_duration': break_duration,
@@ -358,6 +376,10 @@ def create_task():
             'priority': 0,
             'status': 'pending'
         })
+        
+        # プレイリストが選択されていれば自動的に追加
+        if selected_id and task_id:
+            cloud_db.add_task_to_playlist(selected_id, task_id, 0)
     else:
         # ゲスト: ローカルDBに保存
         task = Task(
@@ -369,7 +391,11 @@ def create_task():
             priority=0,
             status="pending"
         )
-        db.create_task(task)
+        new_task_id = db.create_task(task)
+        
+        # プレイリストが選択されていれば自動的に追加
+        if selected_id:
+            db.add_task_to_playlist(int(selected_id), new_task_id)
     
     return redirect(url_for('playlist', selected=selected_id))
 
