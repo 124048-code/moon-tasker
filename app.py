@@ -279,11 +279,13 @@ def delete_playlist(playlist_id):
 @app.route('/playlist/<playlist_id>/add/<task_id>', methods=['POST'])
 def add_to_playlist(playlist_id, task_id):
     """タスクをプレイリストに追加"""
+    print(f"[ADD_TO_PLAYLIST] playlist_id={playlist_id}, task_id={task_id}")
     user_id = session.get('user_id')
     if user_id:
         from moon_tasker.cloud.supabase_client import get_cloud_db
         cloud_db = get_cloud_db()
-        cloud_db.add_task_to_playlist(playlist_id, task_id, 0)
+        result = cloud_db.add_task_to_playlist(playlist_id, task_id, 0)
+        print(f"[ADD_TO_PLAYLIST] Result: {result}")
     else:
         db.add_task_to_playlist(int(playlist_id), int(task_id))
     return redirect(url_for('playlist', selected=playlist_id))
