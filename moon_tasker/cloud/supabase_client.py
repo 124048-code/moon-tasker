@@ -368,6 +368,7 @@ class SupabaseDB:
     def save_user_task(self, user_id: str, task: Dict[str, Any]) -> Optional[str]:
         """タスクを保存（作成/更新）"""
         if not SUPABASE_URL:
+            print("[SAVE_USER_TASK] No SUPABASE_URL")
             return None
         
         try:
@@ -385,11 +386,15 @@ class SupabaseDB:
                 "status": task.get("status", "pending")
             }
             
+            print(f"[SAVE_USER_TASK] Saving: {data['title']}")
+            
             if task.get("id"):
                 url = f"{SUPABASE_URL}/rest/v1/user_tasks?id=eq.{task['id']}"
                 response = httpx.patch(url, headers=headers, json=data, timeout=10.0)
             else:
                 response = httpx.post(url, headers=headers, json=data, timeout=10.0)
+            
+            print(f"[SAVE_USER_TASK] Status: {response.status_code}, Response: {response.text[:200] if response.text else 'empty'}")
             
             if response.status_code in [200, 201]:
                 result = response.json()

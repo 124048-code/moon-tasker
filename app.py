@@ -244,7 +244,7 @@ def create_playlist():
         return redirect(url_for('playlist', selected=new_id))
 
 
-@app.route('/playlist/<int:playlist_id>/delete', methods=['POST'])
+@app.route('/playlist/<playlist_id>/delete', methods=['POST'])
 def delete_playlist(playlist_id):
     """プレイリスト削除"""
     user_id = session.get('user_id')
