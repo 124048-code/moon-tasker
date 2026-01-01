@@ -107,33 +107,41 @@
 <div id="stop-dialog" class="dialog-overlay hidden">
     <div class="card dialog-content text-center" style="padding: 32px; max-width: 400px;">
         <div id="stop-step1">
-            <p style="font-size: 48px; margin-bottom: 16px;">😢</p>
-            <h2 class="section-title">本当に中止しますか？</h2>
-            <p class="text-muted mb-6">途中で止めると、集中力が切れてしまいます...</p>
+            <p style="font-size: 48px; margin-bottom: 16px;">🥺</p>
+            <h2 class="section-title">あと少しなのに…</h2>
+            <p class="text-muted mb-6">
+                ここまで頑張ったあなたの努力、<br>
+                無駄にしてしまうんですか？
+            </p>
             <div class="flex gap-2">
-                <button onclick="showSecondWarning()" class="btn btn-danger" style="flex: 1;">中止する</button>
+                <button onclick="showSecondWarning()" class="btn btn-danger" style="flex: 1;">それでもやめる</button>
                 <button onclick="document.getElementById('stop-dialog').classList.add('hidden')" class="btn btn-success"
-                    style="flex: 1;">続ける</button>
+                    style="flex: 1;">もう少し頑張る</button>
             </div>
         </div>
         <div id="stop-step2" class="hidden">
-            <p style="font-size: 48px; margin-bottom: 16px;">⚠️</p>
-            <h2 class="section-title" style="color: #f44336;">最終確認</h2>
-            <p class="mb-6" style="color: #ff9800;">
-                途中で諦めると、<br>次も諦めやすくなります。<br><br>
+            <p style="font-size: 48px; margin-bottom: 16px;">💔</p>
+            <h2 class="section-title" style="color: #e91e63;">本当にいいの？</h2>
+            <p class="mb-6" style="color: #ff9800; line-height: 1.8;">
+                途中で諦めると、次も諦めやすくなります。<br><br>
+                <span style="color: #aaa; font-size: 14px;">
+                    「今日だけ」のつもりが、<br>
+                    いつの間にか習慣になってしまうかも…<br><br>
+                </span>
                 {% if has_creature %}
-                <span style="color: #e91e63; font-weight: 600;">
-                    🐾 あなたの生命体が悲しみます…<br>
-                    （機嫌が30%下がります）<br><br>
+                <span style="color: #e91e63; font-weight: 600; font-size: 15px;">
+                    🐾 あなたの生命体も悲しんでいます…<br>
                 </span>
                 {% endif %}
-                それでも中止しますか？
+                <span style="color: #ccc; font-size: 13px;">
+                    あなたならできるはず。
+                </span>
             </p>
             <div class="flex gap-2">
-                <button onclick="actuallyStop()" class="btn btn-danger" style="flex: 1;">本当に中止</button>
+                <button onclick="actuallyStop()" class="btn btn-danger" style="flex: 1;">…やめる</button>
                 <button
                     onclick="document.getElementById('stop-dialog').classList.add('hidden'); document.getElementById('stop-step1').classList.remove('hidden'); document.getElementById('stop-step2').classList.add('hidden');"
-                    class="btn btn-success" style="flex: 1;">やっぱり続ける</button>
+                    class="btn btn-success" style="flex: 1;">やっぱり頑張る！</button>
             </div>
         </div>
     </div>
@@ -274,9 +282,13 @@
         document.getElementById('stop-step2').classList.remove('hidden');
     }
 
-    function actuallyStop() {
+    async function actuallyStop() {
         timerState.isRunning = false;
         clearInterval(timerState.intervalId);
+
+        // サーバーに中止を通知（生命体の機嫌が下がる）
+        await fetch('/timer/abort', { method: 'POST' });
+
         document.getElementById('stop-dialog').classList.add('hidden');
         document.getElementById('stop-step1').classList.remove('hidden');
         document.getElementById('stop-step2').classList.add('hidden');
@@ -289,7 +301,7 @@
         const response = await fetch('/timer/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `task_id=${task.id}&difficulty=${task.difficulty}`
+            body: `task_id=${task.id}&duration=${task.duration}`
         });
         const result = await response.json();
 

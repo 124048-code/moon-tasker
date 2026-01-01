@@ -179,6 +179,13 @@ def complete_task():
     })
 
 
+@app.route('/timer/abort', methods=['POST'])
+def abort_task():
+    """タイマー中止処理 - 生命体の機嫌が30%下がる"""
+    creature_system.on_task_failed()
+    return jsonify({'success': True})
+
+
 @app.route('/playlist')
 def playlist():
     """プレイリスト管理画面"""
