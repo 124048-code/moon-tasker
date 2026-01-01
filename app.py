@@ -209,7 +209,17 @@ def playlist():
         
         selected_id = request.args.get('selected')
         selected_tasks = []
-        # クラウドプレイリストの場合はまだ実装なし
+        
+        # クラウドプレイリストのタスクを取得
+        if selected_id:
+            playlist_task_ids = cloud_db.get_playlist_tasks(selected_id)
+            # タスクIDからタスク詳細を取得
+            for pt in playlist_task_ids:
+                task_id = pt.get('task_id')
+                for t in tasks:
+                    if t.id == task_id:
+                        selected_tasks.append(t)
+                        break
     else:
         # ゲスト: ローカルDBから取得
         playlists = db.get_all_playlists()
@@ -409,10 +419,18 @@ def create_task():
     return redirect(url_for('playlist', selected=selected_id))
 
 
-@app.route('/task/<int:task_id>/delete', methods=['POST'])
+@app.route('/task/<task_id>/delete', methods=['POST'])
 def delete_task(task_id):
     """タスク削除"""
-    db.delete_task(task_id)
+    user_id = session.get('user_id')
+    if user_id:
+        # ログインユーザー: Supabaseから削除
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_db.delete_user_task(user_id, task_id)
+    else:
+        # ゲスト: ローカルDBから削除
+        db.delete_task(int(task_id))
     return redirect(url_for('playlist'))
 
 
