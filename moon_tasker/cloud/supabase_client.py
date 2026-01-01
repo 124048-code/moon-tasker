@@ -523,10 +523,16 @@ class SupabaseDB:
             print(f"[FIND_USER] Status: {response.status_code}")
             if response.status_code == 200:
                 profiles = response.json()
+                print(f"[FIND_USER] Found {len(profiles)} profiles")
+                
+                # デバッグ: 全プロファイルのuser_id先頭8文字を表示
                 for p in profiles:
                     uid = p.get('user_id', '')
+                    print(f"[FIND_USER] Checking: {uid[:8] if uid else 'no_id'} vs {friend_code}")
                     if uid and uid[:8].lower() == friend_code.lower():
+                        print(f"[FIND_USER] MATCH FOUND!")
                         return p
+                print(f"[FIND_USER] No match found for code: {friend_code}")
         except Exception as e:
             print(f"ユーザー検索エラー: {e}")
         return None
