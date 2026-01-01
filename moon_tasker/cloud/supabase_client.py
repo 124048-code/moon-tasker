@@ -167,24 +167,31 @@ class SupabaseDB:
     def upsert_profile(self, user_id: str, nickname: str, constellation_badge: str = "") -> bool:
         """プロフィールを作成/更新"""
         if not SUPABASE_URL:
+            print("[UPSERT_PROFILE] No SUPABASE_URL")
             return False
         
         try:
+            print(f"[UPSERT_PROFILE] Saving profile for user: {user_id}")
+            
             # Supabase UPSERT: on_conflictパラメータで重複時の更新を指定
-            url = f"{SUPABASE_URL}/rest/v1/profiles?on_conflict=id"
+            url = f"{SUPABASE_URL}/rest/v1/profiles"
             headers = self._get_headers()
-            headers["Prefer"] = "return=minimal,resolution=merge-duplicates"
+            headers["Prefer"] = "return=representation,resolution=merge-duplicates"
+            
+            data = {
+                "user_id": user_id,
+                "nickname": nickname or "",
+                "constellation_badge": constellation_badge or ""
+            }
+            print(f"[UPSERT_PROFILE] Data: {data}")
+            
             response = httpx.post(
                 url,
                 headers=headers,
-                json={
-                    "id": user_id,
-                    "nickname": nickname,
-                    "constellation_badge": constellation_badge
-                },
+                json=data,
                 timeout=10.0
             )
-            print(f"Upsert profile response: {response.status_code} - {response.text}")
+            print(f"[UPSERT_PROFILE] Response: {response.status_code} - {response.text[:200] if response.text else 'empty'}")
             return response.status_code in [200, 201, 204]
         except Exception as e:
             print(f"プロフィール更新エラー: {e}")
