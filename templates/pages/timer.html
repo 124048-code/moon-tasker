@@ -184,6 +184,12 @@
         startBtn.classList.add('hidden');
         document.getElementById('timer-menu-container').classList.remove('hidden');
         timerCard.classList.add('timer-active');
+
+        // ナビゲーションを非表示（集中モード）
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) sidebar.style.display = 'none';
+        document.body.classList.add('focus-mode');
+
         startTask();
     }
 
@@ -321,6 +327,12 @@
 
     function closeCompleteDialog() {
         document.getElementById('complete-dialog').classList.add('hidden');
+
+        // ナビゲーションを再表示
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) sidebar.style.display = '';
+        document.body.classList.remove('focus-mode');
+
         window.location.href = '/';
     }
 
@@ -335,6 +347,11 @@
         timerCard.classList.remove('timer-active');
         statusText.textContent = '中止しました';
         completedResults = { badges: [], evolutions: [], present: null };
+
+        // ナビゲーションを再表示（集中モード解除）
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) sidebar.style.display = '';
+        document.body.classList.remove('focus-mode');
     }
 
     function toggleTimerMenu() {
