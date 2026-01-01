@@ -534,9 +534,12 @@ class SupabaseDB:
     def send_friend_request(self, from_user_id: str, friend_code: str) -> bool:
         """フレンドリクエストを送信"""
         if not SUPABASE_URL:
+            print("[SEND_FRIEND_REQUEST] No SUPABASE_URL")
             return False
         
         try:
+            print(f"[SEND_FRIEND_REQUEST] Looking for code: {friend_code}")
+            
             # フレンドコードでユーザーを検索
             target_user = self.find_user_by_code(friend_code)
             if not target_user:
@@ -544,21 +547,27 @@ class SupabaseDB:
                 return False
             
             to_user_id = target_user.get('user_id')
+            print(f"[SEND_FRIEND_REQUEST] Found user: {to_user_id}")
+            
             if to_user_id == from_user_id:
                 print("[SEND_FRIEND_REQUEST] Cannot add self")
                 return False
             
             url = f"{SUPABASE_URL}/rest/v1/friend_requests"
             headers = self._get_headers()
-            headers["Prefer"] = "return=minimal,resolution=ignore-duplicates"
-            response = httpx.post(
-                url + "?on_conflict=from_user_id,to_user_id",
-                headers=headers,
-                json={"from_user_id": from_user_id, "to_user_id": to_user_id, "status": "pending"},
-                timeout=10.0
-            )
-            print(f"[SEND_FRIEND_REQUEST] Status: {response.status_code}")
-            return response.status_code in [200, 201, 204]
+            headers["Prefer"] = "return=representation"
+            
+            data = {
+                "from_user_id": from_user_id, 
+                "to_user_id": to_user_id, 
+                "status": "pending"
+            }
+            print(f"[SEND_FRIEND_REQUEST] Sending: {data}")
+            
+            response = httpx.post(url, headers=headers, json=data, timeout=10.0)
+            print(f"[SEND_FRIEND_REQUEST] Status: {response.status_code}, Response: {response.text[:200] if response.text else 'empty'}")
+            
+            return response.status_code in [200, 201]
         except Exception as e:
             print(f"フレンドリクエスト送信エラー: {e}")
         return False
