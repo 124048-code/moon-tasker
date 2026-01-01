@@ -155,7 +155,7 @@ class SupabaseDB:
             return None
         
         try:
-            url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=*"
+            url = f"{SUPABASE_URL}/rest/v1/profiles?user_id=eq.{user_id}&select=*"
             response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
             if response.status_code == 200:
                 data = response.json()
