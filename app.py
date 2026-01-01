@@ -87,9 +87,11 @@ def timer():
     """タイマー画面"""
     playlists = db.get_all_playlists()
     lifestyle = db.get_lifestyle_settings()
+    creature = creature_system.get_creature()
     return render_template('pages/timer.html',
                          playlists=playlists,
-                         lifestyle=lifestyle)
+                         lifestyle=lifestyle,
+                         has_creature=creature is not None)
 
 
 @app.route('/timer/playlist/<int:playlist_id>/tasks')
@@ -128,13 +130,13 @@ def get_playlist_tasks(playlist_id):
 def complete_task():
     """タスク完了処理"""
     task_id = request.form.get('task_id', type=int)
-    difficulty = request.form.get('difficulty', 3, type=int)
+    duration = request.form.get('duration', 25, type=int)
     
     if task_id and task_id > 0:
         db.update_task_status(task_id, "completed")
         db.log_activity(task_id, "completed")
     
-    creature_system.on_task_completed(difficulty)
+    creature_system.on_task_completed(duration)
     
     # バッジチェック
     newly_unlocked = badge_system.check_all_badges()

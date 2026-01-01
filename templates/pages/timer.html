@@ -121,6 +121,12 @@
             <h2 class="section-title" style="color: #f44336;">最終確認</h2>
             <p class="mb-6" style="color: #ff9800;">
                 途中で諦めると、<br>次も諦めやすくなります。<br><br>
+                {% if has_creature %}
+                <span style="color: #e91e63; font-weight: 600;">
+                    🐾 あなたの生命体が悲しみます…<br>
+                    （機嫌が30%下がります）<br><br>
+                </span>
+                {% endif %}
                 それでも中止しますか？
             </p>
             <div class="flex gap-2">

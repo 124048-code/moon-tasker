@@ -106,15 +106,19 @@ class CreatureSystem:
         """進化段階の情報を取得"""
         return self.EVOLUTION_STAGES.get(stage, self.EVOLUTION_STAGES[1])
     
-    def on_task_completed(self, difficulty: int = 1):
-        """タスク完了時の処理（プレゼント付き）"""
+    def on_task_completed(self, duration: int = 25):
+        """タスク完了時の処理（プレゼント付き）
+        
+        Args:
+            duration: タスクの時間（分）。1分につき機嫌が1%上昇
+        """
         creature = self.get_creature()
         if not creature:
             return
         
-        # 難易度に応じてパラメータ上昇
-        mood_increase = 8 * difficulty
-        energy_increase = 5 * difficulty
+        # 時間に応じてパラメータ上昇（1分 = 1%）
+        mood_increase = duration
+        energy_increase = max(5, duration // 5)
         
         creature.mood = min(100, creature.mood + mood_increase)
         creature.energy = min(100, creature.energy + energy_increase)
@@ -131,14 +135,14 @@ class CreatureSystem:
         self.db.update_creature(creature)
     
     def on_task_failed(self):
-        """タスク失敗時の処理"""
+        """タスク中止時の処理 - 機嫌が30%下がる"""
         creature = self.get_creature()
         if not creature:
             return
         
-        # 機嫌が下がる
-        creature.mood = max(0, creature.mood - 15)
-        creature.energy = max(0, creature.energy - 8)
+        # 機嫌が30%下がる
+        creature.mood = max(0, creature.mood - 30)
+        creature.energy = max(0, creature.energy - 10)
         
         self.db.update_creature(creature)
     
