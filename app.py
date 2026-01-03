@@ -242,14 +242,20 @@ def playlist():
         
         # クラウドプレイリストのタスクを取得
         if selected_id:
-            playlist_task_ids = cloud_db.get_playlist_tasks(selected_id)
-            # タスクIDからタスク詳細を取得
-            for pt in playlist_task_ids:
-                task_id = pt.get('task_id')
-                for t in tasks:
-                    if t.id == task_id:
-                        selected_tasks.append(t)
-                        break
+            playlist_task_data = cloud_db.get_playlist_tasks(selected_id)
+            # JOINされたuser_tasksデータを直接使用
+            for pt in playlist_task_data:
+                user_task = pt.get('user_tasks')
+                if user_task:
+                    selected_tasks.append(type('Task', (), {
+                        'id': user_task['id'],
+                        'title': user_task['title'],
+                        'duration': user_task.get('duration', 25),
+                        'break_duration': user_task.get('break_duration', 5),
+                        'difficulty': user_task.get('difficulty', 3),
+                        'priority': user_task.get('priority', 0),
+                        'status': user_task.get('status', 'pending')
+                    })())
     else:
         # ゲスト: ローカルDBから取得
         playlists = get_db().get_all_playlists()
