@@ -432,7 +432,8 @@ class SupabaseDB:
             return []
         
         try:
-            url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=task_id,task_order,user_tasks(*)&order=task_order"
+            # Note: task_orderカラムはSupabaseテーブルに存在しないため除外
+            url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=task_id,user_tasks(*)"
             print(f"[GET_PLAYLIST_TASKS] URL: {url}")
             response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
             print(f"[GET_PLAYLIST_TASKS] Status: {response.status_code}")
@@ -451,7 +452,8 @@ class SupabaseDB:
         
         try:
             url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks"
-            data = {"playlist_id": playlist_id, "task_id": task_id, "task_order": order}
+            # Note: task_orderカラムはSupabaseテーブルに存在しないため除外
+            data = {"playlist_id": playlist_id, "task_id": task_id}
             print(f"[ADD_TASK_TO_PLAYLIST] URL: {url}")
             print(f"[ADD_TASK_TO_PLAYLIST] Data: {data}")
             response = httpx.post(
