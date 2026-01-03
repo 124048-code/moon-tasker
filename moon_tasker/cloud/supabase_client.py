@@ -428,11 +428,15 @@ class SupabaseDB:
     def get_playlist_tasks(self, playlist_id: str) -> list:
         """プレイリスト内のタスクを取得"""
         if not SUPABASE_URL:
+            print("[GET_PLAYLIST_TASKS] No SUPABASE_URL")
             return []
         
         try:
             url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=task_id,task_order,user_tasks(*)&order=task_order"
+            print(f"[GET_PLAYLIST_TASKS] URL: {url}")
             response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[GET_PLAYLIST_TASKS] Status: {response.status_code}")
+            print(f"[GET_PLAYLIST_TASKS] Response: {response.text}")
             if response.status_code == 200:
                 return response.json()
         except Exception as e:
@@ -456,7 +460,10 @@ class SupabaseDB:
                 json=data,
                 timeout=10.0
             )
-            print(f"[ADD_TASK_TO_PLAYLIST] Status: {response.status_code}, Response: {response.text[:300] if response.text else 'empty'}")
+            print(f"[ADD_TASK_TO_PLAYLIST] Status: {response.status_code}")
+            print(f"[ADD_TASK_TO_PLAYLIST] Full Response: {response.text}")
+            if response.status_code not in [200, 201]:
+                print(f"[ADD_TASK_TO_PLAYLIST] ERROR - Insertion failed!")
             return response.status_code in [200, 201]
         except Exception as e:
             print(f"プレイリストタスク追加エラー: {e}")
