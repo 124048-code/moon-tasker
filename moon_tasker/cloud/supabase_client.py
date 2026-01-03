@@ -442,16 +442,21 @@ class SupabaseDB:
     def add_task_to_playlist(self, playlist_id: str, task_id: str, order: int = 0) -> bool:
         """タスクをプレイリストに追加"""
         if not SUPABASE_URL:
+            print("[ADD_TASK_TO_PLAYLIST] No SUPABASE_URL")
             return False
         
         try:
             url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks"
+            data = {"playlist_id": playlist_id, "task_id": task_id, "task_order": order}
+            print(f"[ADD_TASK_TO_PLAYLIST] URL: {url}")
+            print(f"[ADD_TASK_TO_PLAYLIST] Data: {data}")
             response = httpx.post(
                 url,
                 headers=self._get_headers(),
-                json={"playlist_id": playlist_id, "task_id": task_id, "task_order": order},
+                json=data,
                 timeout=10.0
             )
+            print(f"[ADD_TASK_TO_PLAYLIST] Status: {response.status_code}, Response: {response.text[:300] if response.text else 'empty'}")
             return response.status_code in [200, 201]
         except Exception as e:
             print(f"プレイリストタスク追加エラー: {e}")
