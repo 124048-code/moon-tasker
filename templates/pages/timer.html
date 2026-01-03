@@ -232,7 +232,7 @@
         timerState.intervalId = setInterval(tick, 1000);
     }
 
-    function tick() {
+    async function tick() {
         if (!timerState.isRunning || timerState.isPaused) return;
         timerState.remainingSeconds--;
         updateTimerDisplay();
@@ -243,7 +243,7 @@
                 startTask();
             } else {
                 const task = timerState.tasks[timerState.currentTaskIndex];
-                completeTask(task);
+                await completeTask(task);
 
                 // 最後のタスクの場合は休憩をスキップしてすぐに完了
                 const isLastTask = timerState.currentTaskIndex >= timerState.tasks.length - 1;
