@@ -10,8 +10,9 @@ from .models import Task, Playlist, Creature, Badge, MoonCycle, LifestyleSetting
 class Database:
     """SQLiteデータベース管理クラス"""
     
-    def __init__(self, db_path: str = "moon_tasker.db"):
+    def __init__(self, db_path: str = "moon_tasker.db", guest_id: str = None):
         self.db_path = db_path
+        self.guest_id = guest_id  # ゲストユーザー識別用
         self.init_database()
     
     def get_connection(self):
@@ -191,11 +192,33 @@ class Database:
         
         # マイグレーション（既存DBへのカラム追加）
         self._migrate_moon_cycles_table()
+        self._migrate_guest_id_columns()  # ゲストID分離用マイグレーション
         
         # 初期データの作成（生命体が存在しない場合）
         self._init_default_creature()
         self._init_default_badges()
         self._init_default_lifestyle()
+    
+    def _migrate_guest_id_columns(self):
+        """ゲストID分離用のカラムを追加"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        # 各テーブルにguest_idカラムを追加
+        tables_to_migrate = ['tasks', 'playlists', 'creatures', 'moon_cycles', 
+                            'activity_log', 'lifestyle_settings']
+        
+        for table in tables_to_migrate:
+            try:
+                cursor.execute(f"PRAGMA table_info({table})")
+                columns = [row['name'] for row in cursor.fetchall()]
+                if 'guest_id' not in columns:
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN guest_id TEXT")
+            except Exception as e:
+                print(f"Migration error for {table}: {e}")
+        
+        conn.commit()
+        conn.close()
     
     def _migrate_moon_cycles_table(self):
         """moon_cyclesテーブルのマイグレーション"""
@@ -301,20 +324,23 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO tasks (title, category, difficulty, duration, break_duration, priority, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO tasks (title, category, difficulty, duration, break_duration, priority, status, guest_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (task.title, task.category, task.difficulty, task.duration, 
-              task.break_duration, task.priority, task.status))
+              task.break_duration, task.priority, task.status, self.guest_id))
         task_id = cursor.lastrowid
         conn.commit()
         conn.close()
         return task_id
     
     def get_all_tasks(self) -> List[Task]:
-        """全タスクを取得"""
+        """全タスクを取得（guest_idでフィルタ）"""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM tasks ORDER BY id ASC")
+        if self.guest_id:
+            cursor.execute("SELECT * FROM tasks WHERE guest_id = ? ORDER BY id ASC", (self.guest_id,))
+        else:
+            cursor.execute("SELECT * FROM tasks WHERE guest_id IS NULL ORDER BY id ASC")
         rows = cursor.fetchall()
         conn.close()
         
@@ -360,10 +386,13 @@ class Database:
     # ===== Creature操作 =====
     
     def get_creature(self) -> Optional[Creature]:
-        """生命体を取得（常に1つのみ）"""
+        """生命体を取得（guest_idでフィルタ）"""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM creatures ORDER BY id DESC LIMIT 1")
+        if self.guest_id:
+            cursor.execute("SELECT * FROM creatures WHERE guest_id = ? ORDER BY id DESC LIMIT 1", (self.guest_id,))
+        else:
+            cursor.execute("SELECT * FROM creatures WHERE guest_id IS NULL ORDER BY id DESC LIMIT 1")
         row = cursor.fetchone()
         conn.close()
         
@@ -389,9 +418,9 @@ class Database:
         cursor = conn.cursor()
         now = datetime.now()
         cursor.execute("""
-            INSERT INTO creatures (name, mood, energy, evolution_stage, status, started_at, last_interaction, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (name, 50, 50, 1, 'active', now, now, now))
+            INSERT INTO creatures (name, mood, energy, evolution_stage, status, started_at, last_interaction, created_at, guest_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, 50, 50, 1, 'active', now, now, now, self.guest_id))
         creature_id = cursor.lastrowid
         conn.commit()
         conn.close()
@@ -483,19 +512,22 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO playlists (name, description)
-            VALUES (?, ?)
-        """, (playlist.name, playlist.description))
+            INSERT INTO playlists (name, description, guest_id)
+            VALUES (?, ?, ?)
+        """, (playlist.name, playlist.description, self.guest_id))
         playlist_id = cursor.lastrowid
         conn.commit()
         conn.close()
         return playlist_id
     
     def get_all_playlists(self) -> List[Playlist]:
-        """全プレイリストを取得"""
+        """全プレイリストを取得（guest_idでフィルタ）"""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM playlists ORDER BY created_at DESC")
+        if self.guest_id:
+            cursor.execute("SELECT * FROM playlists WHERE guest_id = ? ORDER BY created_at DESC", (self.guest_id,))
+        else:
+            cursor.execute("SELECT * FROM playlists WHERE guest_id IS NULL ORDER BY created_at DESC")
         rows = cursor.fetchall()
         conn.close()
         

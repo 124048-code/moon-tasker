@@ -2,11 +2,12 @@
 Moon Tasker - Flask Application
 HTMX + Static CSS based web application (Full Feature Version)
 """
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, g
 from datetime import datetime, timedelta
 import os
 import sys
 import json
+import uuid
 
 # Add moon_tasker to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -23,11 +24,40 @@ app = Flask(__name__,
             static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'moon-tasker-secret-key-2024')
 
-# Database instance
-db = Database()
-creature_system = CreatureSystem(db)
+# グローバルインスタンス（guest_id不要なもの）
 moon_calc = MoonCycleCalculator()
-badge_system = BadgeSystem(db)
+
+
+def get_guest_id():
+    """セッションからゲストIDを取得（なければ生成）"""
+    # ログインユーザーの場合はNone（クラウドデータを使用）
+    if session.get('user_id'):
+        return None
+    # ゲストユーザーの場合はセッションIDを使用
+    if 'guest_id' not in session:
+        session['guest_id'] = str(uuid.uuid4())
+    return session['guest_id']
+
+
+def get_db():
+    """リクエストごとのDatabaseインスタンスを取得"""
+    if 'db' not in g:
+        g.db = Database(guest_id=get_guest_id())
+    return g.db
+
+
+def get_creature_system():
+    """リクエストごとのCreatureSystemインスタンスを取得"""
+    if 'creature_system' not in g:
+        g.creature_system = CreatureSystem(get_db())
+    return g.creature_system
+
+
+def get_badge_system():
+    """リクエストごとのBadgeSystemインスタンスを取得"""
+    if 'badge_system' not in g:
+        g.badge_system = BadgeSystem(get_db())
+    return g.badge_system
 
 
 def get_creature_context(creature):
@@ -40,10 +70,10 @@ def get_creature_context(creature):
             'creature_image': None
         }
     
-    creature_system.check_neglect()
-    emotion = creature_system.get_emotion_state(creature)
-    warning = creature_system.get_warning_message(creature)
-    image_filename = creature_system.get_image_filename(creature)
+    get_creature_system().check_neglect()
+    emotion = get_creature_system().get_emotion_state(creature)
+    warning = get_creature_system().get_warning_message(creature)
+    image_filename = get_creature_system().get_image_filename(creature)
     
     return {
         'creature': creature,
@@ -58,15 +88,15 @@ def get_creature_context(creature):
 @app.route('/')
 def home():
     """ホーム画面"""
-    creature = creature_system.get_creature()
+    creature = get_creature_system().get_creature()
     moon_phase = moon_calc.get_moon_phase_name()
     moon_emoji = moon_calc.get_moon_emoji()
     
-    tasks = db.get_all_tasks()
+    tasks = get_db().get_all_tasks()
     pending_count = len([t for t in tasks if t.status == "pending"])
-    completed_count = db.get_completed_task_count()
+    completed_count = get_db().get_completed_task_count()
     
-    streak_data = db.get_streak_data()
+    streak_data = get_db().get_streak_data()
     
     ctx = get_creature_context(creature)
     
@@ -85,9 +115,9 @@ def home():
 @app.route('/timer')
 def timer():
     """タイマー画面"""
-    playlists = db.get_all_playlists()
-    lifestyle = db.get_lifestyle_settings()
-    creature = creature_system.get_creature()
+    playlists = get_db().get_all_playlists()
+    lifestyle = get_db().get_lifestyle_settings()
+    creature = get_creature_system().get_creature()
     return render_template('pages/timer.html',
                          playlists=playlists,
                          lifestyle=lifestyle,
@@ -97,7 +127,7 @@ def timer():
 @app.route('/timer/playlist/<int:playlist_id>/tasks')
 def get_playlist_tasks(playlist_id):
     """プレイリストのタスク一覧を取得（HTMX用）"""
-    tasks = db.get_playlist_tasks(playlist_id)
+    tasks = get_db().get_playlist_tasks(playlist_id)
     
     # 日本標準時（JST、UTC+9）を使用
     from datetime import timezone
@@ -133,13 +163,13 @@ def complete_task():
     duration = request.form.get('duration', 25, type=int)
     
     if task_id and task_id > 0:
-        db.update_task_status(task_id, "completed")
-        db.log_activity(task_id, "completed")
+        get_db().update_task_status(task_id, "completed")
+        get_db().log_activity(task_id, "completed")
     
-    creature_system.on_task_completed(duration)
+    get_creature_system().on_task_completed(duration)
     
     # バッジチェック
-    newly_unlocked = badge_system.check_all_badges()
+    newly_unlocked = get_badge_system().check_all_badges()
     
     # 新しいバッジをセッションに保存（星座図鑑で演出表示用）
     if newly_unlocked:
@@ -156,20 +186,20 @@ def complete_task():
                 cloud_db.save_user_badge(user_id, badge_name)
     
     # 進化チェック
-    creature = creature_system.get_creature()
+    creature = get_creature_system().get_creature()
     evolutions = []
     if creature:
         old_stage = creature.evolution_stage
-        creature_system._check_evolution(creature)
+        get_creature_system()._check_evolution(creature)
         if creature.evolution_stage > old_stage:
             evolutions.append({
                 'from': old_stage,
                 'to': creature.evolution_stage,
-                'name': creature_system.get_stage_name(creature)
+                'name': get_creature_system().get_stage_name(creature)
             })
     
     # プレゼントチェック
-    present = creature_system.last_present
+    present = get_creature_system().last_present
     
     return jsonify({
         'success': True,
@@ -182,7 +212,7 @@ def complete_task():
 @app.route('/timer/abort', methods=['POST'])
 def abort_task():
     """タイマー中止処理 - 生命体の機嫌が30%下がる"""
-    creature_system.on_task_failed()
+    get_creature_system().on_task_failed()
     return jsonify({'success': True})
 
 
@@ -222,16 +252,16 @@ def playlist():
                         break
     else:
         # ゲスト: ローカルDBから取得
-        playlists = db.get_all_playlists()
-        tasks = db.get_all_tasks()
+        playlists = get_db().get_all_playlists()
+        tasks = get_db().get_all_tasks()
         pending_tasks = [t for t in tasks if t.status == "pending"]
         
         selected_id = request.args.get('selected', type=int)
         selected_tasks = []
         if selected_id:
-            selected_tasks = db.get_playlist_tasks(selected_id)
+            selected_tasks = get_db().get_playlist_tasks(selected_id)
     
-    lifestyle = db.get_lifestyle_settings()
+    lifestyle = get_db().get_lifestyle_settings()
     
     return render_template('pages/playlist.html',
                          playlists=playlists,
@@ -259,7 +289,7 @@ def create_playlist():
     else:
         # ゲスト: ローカルDBに保存
         pl = Playlist(name=name, description="")
-        new_id = db.create_playlist(pl)
+        new_id = get_db().create_playlist(pl)
         return redirect(url_for('playlist', selected=new_id))
 
 
@@ -272,7 +302,7 @@ def delete_playlist(playlist_id):
         cloud_db = get_cloud_db()
         cloud_db.delete_user_playlist(user_id, str(playlist_id))
     else:
-        db.delete_playlist(playlist_id)
+        get_db().delete_playlist(playlist_id)
     return redirect(url_for('playlist'))
 
 
@@ -287,7 +317,7 @@ def add_to_playlist(playlist_id, task_id):
         result = cloud_db.add_task_to_playlist(playlist_id, task_id, 0)
         print(f"[ADD_TO_PLAYLIST] Result: {result}")
     else:
-        db.add_task_to_playlist(int(playlist_id), int(task_id))
+        get_db().add_task_to_playlist(int(playlist_id), int(task_id))
     return redirect(url_for('playlist', selected=playlist_id))
 
 
@@ -300,14 +330,14 @@ def remove_from_playlist(playlist_id, task_id):
         cloud_db = get_cloud_db()
         cloud_db.remove_task_from_playlist(playlist_id, task_id)
     else:
-        db.remove_task_from_playlist(int(playlist_id), int(task_id))
+        get_db().remove_task_from_playlist(int(playlist_id), int(task_id))
     return redirect(url_for('playlist', selected=playlist_id))
 
 
 @app.route('/playlist/<int:playlist_id>/move/<int:task_id>/<direction>', methods=['POST'])
 def move_task_in_playlist(playlist_id, task_id, direction):
     """プレイリスト内でタスクを移動"""
-    tasks = db.get_playlist_tasks(playlist_id)
+    tasks = get_db().get_playlist_tasks(playlist_id)
     task_ids = [t.id for t in tasks]
     
     if task_id in task_ids:
@@ -317,7 +347,7 @@ def move_task_in_playlist(playlist_id, task_id, direction):
         elif direction == 'down' and idx < len(task_ids) - 1:
             task_ids[idx], task_ids[idx+1] = task_ids[idx+1], task_ids[idx]
         
-        db.reorder_playlist_tasks(playlist_id, task_ids)
+        get_db().reorder_playlist_tasks(playlist_id, task_ids)
     
     return redirect(url_for('playlist', selected=playlist_id))
 
@@ -328,11 +358,11 @@ def optimize_playlist(playlist_id):
     mode = request.form.get('mode', 'balanced')
     time_limit = request.form.get('time_limit', type=int)
     
-    tasks = db.get_playlist_tasks(playlist_id)
+    tasks = get_db().get_playlist_tasks(playlist_id)
     if not tasks:
         return redirect(url_for('playlist', selected=playlist_id))
     
-    lifestyle = db.get_lifestyle_settings()
+    lifestyle = get_db().get_lifestyle_settings()
     
     if mode == 'balanced':
         optimizer = ScheduleOptimizer()
@@ -347,7 +377,7 @@ def optimize_playlist(playlist_id):
         optimized = tasks
     
     task_ids = [t.id for t in optimized]
-    db.reorder_playlist_tasks(playlist_id, task_ids)
+    get_db().reorder_playlist_tasks(playlist_id, task_ids)
     
     return redirect(url_for('playlist', selected=playlist_id))
 
@@ -366,7 +396,7 @@ def save_lifestyle():
         dinner_time=request.form.get('dinner_time', '19:00'),
         meal_duration=request.form.get('meal_duration', 30, type=int)
     )
-    db.save_lifestyle_settings(settings)
+    get_db().save_lifestyle_settings(settings)
     
     selected_id = request.form.get('selected_playlist', type=int)
     return redirect(url_for('playlist', selected=selected_id))
@@ -412,11 +442,11 @@ def create_task():
             priority=0,
             status="pending"
         )
-        new_task_id = db.create_task(task)
+        new_task_id = get_db().create_task(task)
         
         # プレイリストが選択されていれば自動的に追加
         if selected_id:
-            db.add_task_to_playlist(int(selected_id), new_task_id)
+            get_db().add_task_to_playlist(int(selected_id), new_task_id)
     
     return redirect(url_for('playlist', selected=selected_id))
 
@@ -432,15 +462,15 @@ def delete_task(task_id):
         cloud_db.delete_user_task(user_id, task_id)
     else:
         # ゲスト: ローカルDBから削除
-        db.delete_task(int(task_id))
+        get_db().delete_task(int(task_id))
     return redirect(url_for('playlist'))
 
 
 @app.route('/moon-cycle')
 def moon_cycle():
     """月のサイクル画面"""
-    active_cycle = db.get_active_moon_cycle()
-    all_cycles = db.get_all_moon_cycles()
+    active_cycle = get_db().get_active_moon_cycle()
+    all_cycles = get_db().get_all_moon_cycles()
     completed_cycles = [c for c in all_cycles if c.status == "completed"][:5]
     
     moon_emoji = moon_calc.get_moon_emoji()
@@ -452,14 +482,14 @@ def moon_cycle():
     total_count = 0
     
     if active_cycle:
-        cycle_tasks = db.get_cycle_tasks(active_cycle.id)
+        cycle_tasks = get_db().get_cycle_tasks(active_cycle.id)
         completed_count = sum(1 for t in cycle_tasks if getattr(t, '_cycle_completed', False))
         total_count = len(cycle_tasks)
         if total_count > 0:
             progress = (completed_count / total_count) * 100
     
     # 利用可能なタスク（サイクルに追加可能）
-    all_tasks = db.get_all_tasks()
+    all_tasks = get_db().get_all_tasks()
     available_tasks = [t for t in all_tasks if t.status == "pending"]
     
     return render_template('pages/moon_cycle.html',
@@ -490,7 +520,7 @@ def create_moon_cycle():
         completed_task_count=0,
         status="active"
     )
-    db.create_moon_cycle(cycle)
+    get_db().create_moon_cycle(cycle)
     return redirect(url_for('moon_cycle'))
 
 
@@ -499,7 +529,7 @@ def add_task_to_cycle(cycle_id):
     """サイクルにタスクを追加"""
     task_ids = request.form.getlist('task_ids')
     for task_id in task_ids:
-        db.add_task_to_cycle(cycle_id, int(task_id))
+        get_db().add_task_to_cycle(cycle_id, int(task_id))
     return redirect(url_for('moon_cycle'))
 
 
@@ -511,14 +541,14 @@ def complete_moon_cycle(cycle_id):
     improvement_points = request.form.get('improvement_points', '')
     next_actions = request.form.get('next_actions', '')
     
-    db.complete_moon_cycle(cycle_id, self_rating, good_points, improvement_points, next_actions)
+    get_db().complete_moon_cycle(cycle_id, self_rating, good_points, improvement_points, next_actions)
     return redirect(url_for('moon_cycle'))
 
 
 @app.route('/moon-cycle/<int:cycle_id>/delete', methods=['POST'])
 def delete_moon_cycle(cycle_id):
     """サイクル削除"""
-    db.delete_moon_cycle(cycle_id)
+    get_db().delete_moon_cycle(cycle_id)
     return redirect(url_for('moon_cycle'))
 
 
@@ -529,7 +559,7 @@ def collection():
     
     try:
         # 全バッジ定義を取得
-        badges = db.get_all_badges()
+        badges = get_db().get_all_badges()
         
         if user_id:
             # ログインユーザー: Supabaseからバッジ獲得状況を取得
@@ -577,7 +607,7 @@ def collection():
 @app.route('/creature')
 def creature():
     """生命体画面"""
-    current_creature = creature_system.get_creature()
+    current_creature = get_creature_system().get_creature()
     ctx = get_creature_context(current_creature)
     
     evolution_history = []
@@ -632,7 +662,7 @@ def start_creature():
         if ng in name:
             return redirect(url_for('creature'))
     
-    creature_system.start_new_creature(name)
+    get_creature_system().start_new_creature(name)
     return redirect(url_for('creature'))
 
 
@@ -650,14 +680,14 @@ def friends():
     my_creature_cloud = None
     
     # ローカルの生命体を取得
-    local_creature = creature_system.get_creature()
+    local_creature = get_creature_system().get_creature()
     has_local_creature = local_creature and local_creature.status in ['active', 'completed']
     
     # 獲得済みバッジ（称号選択用）
     unlocked_badges = []
     try:
         from moon_tasker.logic.titles import get_title_for_constellation
-        all_badges = db.get_all_badges()
+        all_badges = get_db().get_all_badges()
         for b in all_badges:
             if b.unlocked_at:
                 # 称号を追加（辞書に変換）
@@ -868,7 +898,7 @@ def sync_creature():
     if not user_id:
         return redirect(url_for('friends'))
     
-    creature = creature_system.get_creature()
+    creature = get_creature_system().get_creature()
     if not creature or creature.status not in ['active', 'completed']:
         # 生命体がいない場合は育成画面へ
         return redirect(url_for('creature'))
@@ -1009,7 +1039,7 @@ def sync_upload():
         cloud_db = get_cloud_db()
         
         # ローカルタスクをアップロード
-        local_tasks = db.get_all_tasks()
+        local_tasks = get_db().get_all_tasks()
         for task in local_tasks:
             cloud_db.save_user_task(user_id, {
                 'title': task.title,
@@ -1021,7 +1051,7 @@ def sync_upload():
             })
         
         # ローカルプレイリストをアップロード
-        local_playlists = db.get_all_playlists()
+        local_playlists = get_db().get_all_playlists()
         for pl in local_playlists:
             cloud_db.save_user_playlist(user_id, {
                 'name': pl.name,
@@ -1029,7 +1059,7 @@ def sync_upload():
             })
         
         # ローカルバッジをアップロード
-        local_badges = db.get_all_badges()
+        local_badges = get_db().get_all_badges()
         unlocked_badges = [b for b in local_badges if b.unlocked_at]
         badge_count = 0
         for badge in unlocked_badges:
@@ -1066,7 +1096,7 @@ def sync_download():
                 priority=t.get('priority', 0),
                 status=t.get('status', 'pending')
             )
-            db.create_task(task)
+            get_db().create_task(task)
         
         # クラウドプレイリストをダウンロード
         cloud_playlists = cloud_db.get_user_playlists(user_id)
@@ -1076,7 +1106,7 @@ def sync_download():
                 name=p.get('name', ''),
                 description=p.get('description', '')
             )
-            db.create_playlist(pl)
+            get_db().create_playlist(pl)
         
         # クラウドバッジをダウンロード
         cloud_badges = cloud_db.get_user_badges(user_id)
@@ -1084,7 +1114,7 @@ def sync_download():
         for b in cloud_badges:
             badge_name = b.get('badge_name', '')
             if badge_name:
-                db.unlock_badge_by_name(badge_name)
+                get_db().unlock_badge_by_name(badge_name)
         
         return jsonify({'success': True, 'tasks': len(cloud_tasks), 'playlists': len(cloud_playlists), 'badges': len(cloud_badges)})
     except Exception as e:
@@ -1106,8 +1136,8 @@ def restore_from_local():
         restored_playlists = 0
         
         # 既存データがなければ復元
-        existing_tasks = db.get_all_tasks()
-        existing_playlists = db.get_all_playlists()
+        existing_tasks = get_db().get_all_tasks()
+        existing_playlists = get_db().get_all_playlists()
         
         if len(existing_tasks) == 0:
             for t in tasks:
@@ -1119,7 +1149,7 @@ def restore_from_local():
                     priority=t.get('priority', 0),
                     status=t.get('status', 'pending')
                 )
-                db.create_task(task)
+                get_db().create_task(task)
                 restored_tasks += 1
         
         if len(existing_playlists) == 0:
@@ -1128,7 +1158,7 @@ def restore_from_local():
                     name=p.get('name', ''),
                     description=p.get('description', '')
                 )
-                db.create_playlist(pl)
+                get_db().create_playlist(pl)
                 restored_playlists += 1
         
         return jsonify({'success': True, 'tasks': restored_tasks, 'playlists': restored_playlists})
@@ -1140,8 +1170,8 @@ def restore_from_local():
 def get_all_data():
     """全データを取得（localStorageに保存用）"""
     try:
-        tasks = db.get_all_tasks()
-        playlists = db.get_all_playlists()
+        tasks = get_db().get_all_tasks()
+        playlists = get_db().get_all_playlists()
         
         tasks_data = [{
             'id': t.id,
