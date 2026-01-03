@@ -115,19 +115,54 @@ def home():
 @app.route('/timer')
 def timer():
     """タイマー画面"""
-    playlists = get_db().get_all_playlists()
+    user_id = session.get('user_id')
+    
+    if user_id:
+        # ログインユーザー: Supabaseからプレイリスト取得
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_playlists = cloud_db.get_user_playlists(user_id)
+        playlists = [type('Playlist', (), {'id': p['id'], 'name': p['name'], 'description': p.get('description', '')})() for p in cloud_playlists]
+    else:
+        # ゲスト: ローカルDBから取得
+        playlists = get_db().get_all_playlists()
+    
     lifestyle = get_db().get_lifestyle_settings()
     creature = get_creature_system().get_creature()
     return render_template('pages/timer.html',
                          playlists=playlists,
                          lifestyle=lifestyle,
-                         has_creature=creature is not None)
+                         has_creature=creature is not None,
+                         is_logged_in=bool(user_id))
 
 
-@app.route('/timer/playlist/<int:playlist_id>/tasks')
+@app.route('/timer/playlist/<playlist_id>/tasks')
 def get_playlist_tasks(playlist_id):
     """プレイリストのタスク一覧を取得（HTMX用）"""
-    tasks = get_db().get_playlist_tasks(playlist_id)
+    user_id = session.get('user_id')
+    
+    if user_id:
+        # ログインユーザー: Supabaseからタスク取得
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        playlist_task_data = cloud_db.get_playlist_tasks(playlist_id)
+        # JOINされたuser_tasksデータを直接使用
+        tasks = []
+        for pt in playlist_task_data:
+            user_task = pt.get('user_tasks')
+            if user_task:
+                tasks.append(type('Task', (), {
+                    'id': user_task['id'],
+                    'title': user_task['title'],
+                    'duration': user_task.get('duration', 25),
+                    'break_duration': user_task.get('break_duration', 5),
+                    'difficulty': user_task.get('difficulty', 3),
+                    'priority': user_task.get('priority', 0),
+                    'status': user_task.get('status', 'pending')
+                })())
+    else:
+        # ゲスト: ローカルDBから取得
+        tasks = get_db().get_playlist_tasks(int(playlist_id))
     
     # 日本標準時（JST、UTC+9）を使用
     from datetime import timezone
