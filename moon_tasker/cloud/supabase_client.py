@@ -484,7 +484,29 @@ class SupabaseDB:
             print(f"プレイリストタスク削除エラー: {e}")
         return False
     
-    # === バッジ ===
+    def reorder_playlist_tasks(self, playlist_id: str, task_ids: list) -> bool:
+        """プレイリスト内のタスク順序を更新（削除して再追加）"""
+        if not SUPABASE_URL:
+            print("[REORDER_PLAYLIST_TASKS] No SUPABASE_URL")
+            return False
+        
+        try:
+            print(f"[REORDER_PLAYLIST_TASKS] Reordering playlist {playlist_id} with tasks: {task_ids}")
+            
+            # 既存のタスクをすべて削除
+            delete_url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}"
+            del_response = httpx.delete(delete_url, headers=self._get_headers(), timeout=10.0)
+            print(f"[REORDER_PLAYLIST_TASKS] Delete status: {del_response.status_code}")
+            
+            # 新しい順序でタスクを再追加
+            for task_id in task_ids:
+                self.add_task_to_playlist(playlist_id, str(task_id))
+            
+            print("[REORDER_PLAYLIST_TASKS] Reorder completed")
+            return True
+        except Exception as e:
+            print(f"プレイリスト再順序化エラー: {e}")
+        return False
     
     def get_user_badges(self, user_id: str) -> list:
         """ユーザーの獲得済みバッジ一覧を取得"""
