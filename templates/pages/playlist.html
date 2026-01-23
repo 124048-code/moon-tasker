@@ -21,9 +21,9 @@
         </select>
 
         {% if selected_id %}
-        <form action="/playlist/{{ selected_id }}/delete" method="post">
-            <button type="submit" onclick="return confirm('削除しますか？')" class="btn btn-danger"
-                style="padding: 12px;">🗑️</button>
+        <form action="/playlist/{{ selected_id }}/delete" method="post"
+            onsubmit="MoonTaskerStorage.clear(); return confirm('削除しますか？');">
+            <button type="submit" class="btn btn-danger" style="padding: 12px;">🗑️</button>
         </form>
         {% endif %}
     </div>
@@ -231,9 +231,9 @@
                 <button type="submit" class="action-btn" style="color: #4caf50; font-size: 18px;">➕</button>
             </form>
             {% endif %}
-            <form action="/task/{{ task.id }}/delete" method="post" style="display: inline;">
-                <button type="submit" onclick="return confirm('削除しますか？')" class="action-btn"
-                    style="color: #f44336;">🗑️</button>
+            <form action="/task/{{ task.id }}/delete" method="post" style="display: inline;"
+                onsubmit="MoonTaskerStorage.clear(); return confirm('削除しますか？');">
+                <button type="submit" class="action-btn" style="color: #f44336;">🗑️</button>
             </form>
         </div>
     </div>

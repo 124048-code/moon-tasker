@@ -386,14 +386,22 @@ class Database:
     # ===== Creature操作 =====
     
     def get_creature(self) -> Optional[Creature]:
-        """生命体を取得（guest_idでフィルタ）"""
+        """生命体を取得（guest_idでフィルタ、フォールバックあり）"""
         conn = self.get_connection()
         cursor = conn.cursor()
+        
+        # まずguest_idでフィルタして検索
         if self.guest_id:
             cursor.execute("SELECT * FROM creatures WHERE guest_id = ? ORDER BY id DESC LIMIT 1", (self.guest_id,))
         else:
             cursor.execute("SELECT * FROM creatures WHERE guest_id IS NULL ORDER BY id DESC LIMIT 1")
         row = cursor.fetchone()
+        
+        # フォールバック: guest_idで見つからない場合、最新のアクティブなcreatureを取得
+        if not row and self.guest_id:
+            cursor.execute("SELECT * FROM creatures WHERE status = 'active' ORDER BY id DESC LIMIT 1")
+            row = cursor.fetchone()
+        
         conn.close()
         
         if row:

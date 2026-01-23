@@ -24,6 +24,12 @@ app = Flask(__name__,
             static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'moon-tasker-secret-key-2024')
 
+# セッションCookieの設定（IP経由でのアクセスでも正しく動作するよう）
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False  # HTTP環境でも動作
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_PATH'] = '/'
+
 # グローバルインスタンス（guest_id不要なもの）
 moon_calc = MoonCycleCalculator()
 
@@ -36,7 +42,17 @@ def get_guest_id():
     # ゲストユーザーの場合はセッションIDを使用
     if 'guest_id' not in session:
         session['guest_id'] = str(uuid.uuid4())
+        session.modified = True  # セッションの変更を明示的にマーク
     return session['guest_id']
+
+
+@app.before_request
+def ensure_guest_id():
+    """リクエスト前にguest_idを確実に初期化"""
+    # ログインユーザーでなければguest_idを生成/取得
+    if not session.get('user_id') and 'guest_id' not in session:
+        session['guest_id'] = str(uuid.uuid4())
+        session.modified = True
 
 
 def get_db():
@@ -375,31 +391,63 @@ def remove_from_playlist(playlist_id, task_id):
     return redirect(url_for('playlist', selected=playlist_id))
 
 
-@app.route('/playlist/<int:playlist_id>/move/<int:task_id>/<direction>', methods=['POST'])
+@app.route('/playlist/<playlist_id>/move/<task_id>/<direction>', methods=['POST'])
 def move_task_in_playlist(playlist_id, task_id, direction):
     """プレイリスト内でタスクを移動"""
-    tasks = get_db().get_playlist_tasks(playlist_id)
-    task_ids = [t.id for t in tasks]
+    user_id = session.get('user_id')
     
-    if task_id in task_ids:
-        idx = task_ids.index(task_id)
-        if direction == 'up' and idx > 0:
-            task_ids[idx], task_ids[idx-1] = task_ids[idx-1], task_ids[idx]
-        elif direction == 'down' and idx < len(task_ids) - 1:
-            task_ids[idx], task_ids[idx+1] = task_ids[idx+1], task_ids[idx]
+    if user_id:
+        # ログインユーザー: Supabaseのデータを使用
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        tasks = cloud_db.get_playlist_tasks(playlist_id)
+        task_ids = [str(t.get('id') if isinstance(t, dict) else t.id) for t in tasks]
+        str_task_id = str(task_id)
         
-        get_db().reorder_playlist_tasks(playlist_id, task_ids)
+        if str_task_id in task_ids:
+            idx = task_ids.index(str_task_id)
+            if direction == 'up' and idx > 0:
+                task_ids[idx], task_ids[idx-1] = task_ids[idx-1], task_ids[idx]
+            elif direction == 'down' and idx < len(task_ids) - 1:
+                task_ids[idx], task_ids[idx+1] = task_ids[idx+1], task_ids[idx]
+            cloud_db.reorder_playlist_tasks(playlist_id, task_ids)
+    else:
+        # ゲストユーザー: ローカルDB
+        try:
+            pl_id = int(playlist_id)
+            t_id = int(task_id)
+        except ValueError:
+            return redirect(url_for('playlist', selected=playlist_id))
+        
+        tasks = get_db().get_playlist_tasks(pl_id)
+        task_ids = [t.id for t in tasks]
+        
+        if t_id in task_ids:
+            idx = task_ids.index(t_id)
+            if direction == 'up' and idx > 0:
+                task_ids[idx], task_ids[idx-1] = task_ids[idx-1], task_ids[idx]
+            elif direction == 'down' and idx < len(task_ids) - 1:
+                task_ids[idx], task_ids[idx+1] = task_ids[idx+1], task_ids[idx]
+            get_db().reorder_playlist_tasks(pl_id, task_ids)
     
     return redirect(url_for('playlist', selected=playlist_id))
 
 
-@app.route('/playlist/<int:playlist_id>/optimize', methods=['POST'])
+@app.route('/playlist/<playlist_id>/optimize', methods=['POST'])
 def optimize_playlist(playlist_id):
     """AIでプレイリストを最適化"""
     mode = request.form.get('mode', 'balanced')
     time_limit = request.form.get('time_limit', type=int)
     
-    tasks = get_db().get_playlist_tasks(playlist_id)
+    user_id = session.get('user_id')
+    
+    # プレイリストIDを適切な型に変換
+    try:
+        pl_id = int(playlist_id) if not user_id else playlist_id
+    except ValueError:
+        pl_id = playlist_id
+    
+    tasks = get_db().get_playlist_tasks(pl_id)
     if not tasks:
         return redirect(url_for('playlist', selected=playlist_id))
     
@@ -418,7 +466,7 @@ def optimize_playlist(playlist_id):
         optimized = tasks
     
     task_ids = [t.id for t in optimized]
-    get_db().reorder_playlist_tasks(playlist_id, task_ids)
+    get_db().reorder_playlist_tasks(pl_id, task_ids)
     
     return redirect(url_for('playlist', selected=playlist_id))
 
@@ -648,7 +696,12 @@ def collection():
 @app.route('/creature')
 def creature():
     """生命体画面"""
+    # デバッグログ
+    print(f"[CREATURE_GET] guest_id: {get_guest_id()}")
+    print(f"[CREATURE_GET] session keys: {list(session.keys())}")
+    
     current_creature = get_creature_system().get_creature()
+    print(f"[CREATURE_GET] found creature: {current_creature.name if current_creature else 'None'}")
     ctx = get_creature_context(current_creature)
     
     evolution_history = []
@@ -697,13 +750,20 @@ def start_creature():
     """生命体育成開始（誓約確認後）"""
     name = request.form.get('name', 'ルナ').strip()
     
+    # デバッグログ
+    print(f"[CREATURE_START] POST received, name={name}")
+    print(f"[CREATURE_START] session keys: {list(session.keys())}")
+    print(f"[CREATURE_START] guest_id: {get_guest_id()}")
+    
     # NGワードチェック（簡易版）
     ng_words = ['バカ', 'アホ', '死', '殺']
     for ng in ng_words:
         if ng in name:
+            print(f"[CREATURE_START] NG word detected: {ng}")
             return redirect(url_for('creature'))
     
-    get_creature_system().start_new_creature(name)
+    creature_id = get_creature_system().start_new_creature(name)
+    print(f"[CREATURE_START] Creature created with id: {creature_id}, guest_id: {get_guest_id()}")
     return redirect(url_for('creature'))
 
 
