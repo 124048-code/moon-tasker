@@ -157,54 +157,65 @@ def get_playlist_tasks(playlist_id):
     """プレイリストのタスク一覧を取得（HTMX用）"""
     user_id = session.get('user_id')
     
-    if user_id:
-        # ログインユーザー: Supabaseからタスク取得
-        from moon_tasker.cloud.supabase_client import get_cloud_db
-        cloud_db = get_cloud_db()
-        playlist_task_data = cloud_db.get_playlist_tasks(playlist_id)
-        # JOINされたuser_tasksデータを直接使用
-        tasks = []
-        for pt in playlist_task_data:
-            user_task = pt.get('user_tasks')
-            if user_task:
-                tasks.append(type('Task', (), {
-                    'id': user_task['id'],
-                    'title': user_task['title'],
-                    'duration': user_task.get('duration', 25),
-                    'break_duration': user_task.get('break_duration', 5),
-                    'difficulty': user_task.get('difficulty', 3),
-                    'priority': user_task.get('priority', 0),
-                    'status': user_task.get('status', 'pending')
-                })())
-    else:
-        # ゲスト: ローカルDBから取得
-        tasks = get_db().get_playlist_tasks(int(playlist_id))
-    
-    # 日本標準時（JST、UTC+9）を使用
-    from datetime import timezone
-    JST = timezone(timedelta(hours=9))
-    
-    schedule = []
-    time_cursor = datetime.now(JST)
-    
-    for idx, task in enumerate(tasks):
-        is_last = idx == len(tasks) - 1
-        # 最後のタスクは休憩時間をカット
-        break_time = 0 if is_last else task.break_duration
-        task_end = time_cursor + timedelta(minutes=task.duration + break_time)
-        schedule.append({
-            'task': task,
-            'start': time_cursor.strftime('%H:%M'),
-            'end': task_end.strftime('%H:%M')
-        })
-        time_cursor = task_end
-    
-    estimated_end = time_cursor.strftime('%H:%M')
-    
-    return render_template('partials/playlist_tasks.html',
-                         tasks=tasks,
-                         schedule=schedule,
-                         estimated_end=estimated_end)
+    try:
+        if user_id:
+            # ログインユーザー: Supabaseからタスク取得
+            from moon_tasker.cloud.supabase_client import get_cloud_db
+            cloud_db = get_cloud_db()
+            playlist_task_data = cloud_db.get_playlist_tasks(playlist_id)
+            print(f"[TIMER_TASKS] playlist_id={playlist_id}, data={playlist_task_data}")
+            
+            # JOINされたuser_tasksデータを直接使用
+            tasks = []
+            for pt in playlist_task_data:
+                user_task = pt.get('user_tasks')
+                if user_task:
+                    tasks.append(type('Task', (), {
+                        'id': user_task['id'],
+                        'title': user_task['title'],
+                        'duration': user_task.get('duration', 25),
+                        'break_duration': user_task.get('break_duration', 5),
+                        'difficulty': user_task.get('difficulty', 3),
+                        'priority': user_task.get('priority', 0),
+                        'status': user_task.get('status', 'pending')
+                    })())
+        else:
+            # ゲスト: ローカルDBから取得
+            tasks = get_db().get_playlist_tasks(int(playlist_id))
+        
+        # 日本標準時（JST、UTC+9）を使用
+        from datetime import timezone
+        JST = timezone(timedelta(hours=9))
+        
+        schedule = []
+        time_cursor = datetime.now(JST)
+        
+        for idx, task in enumerate(tasks):
+            is_last = idx == len(tasks) - 1
+            # 最後のタスクは休憩時間をカット
+            break_time = 0 if is_last else task.break_duration
+            task_end = time_cursor + timedelta(minutes=task.duration + break_time)
+            schedule.append({
+                'task': task,
+                'start': time_cursor.strftime('%H:%M'),
+                'end': task_end.strftime('%H:%M')
+            })
+            time_cursor = task_end
+        
+        estimated_end = time_cursor.strftime('%H:%M')
+        
+        return render_template('partials/playlist_tasks.html',
+                             tasks=tasks,
+                             schedule=schedule,
+                             estimated_end=estimated_end)
+    except Exception as e:
+        print(f"[TIMER_TASKS_ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        return render_template('partials/playlist_tasks.html',
+                             tasks=[],
+                             schedule=[],
+                             estimated_end="--:--")
 
 
 @app.route('/timer/complete', methods=['POST'])
@@ -558,6 +569,8 @@ def delete_task(task_id):
 @app.route('/moon-cycle')
 def moon_cycle():
     """月のサイクル画面"""
+    user_id = session.get('user_id')
+    
     active_cycle = get_db().get_active_moon_cycle()
     all_cycles = get_db().get_all_moon_cycles()
     completed_cycles = [c for c in all_cycles if c.status == "completed"][:5]
@@ -578,8 +591,20 @@ def moon_cycle():
             progress = (completed_count / total_count) * 100
     
     # 利用可能なタスク（サイクルに追加可能）
-    all_tasks = get_db().get_all_tasks()
-    available_tasks = [t for t in all_tasks if t.status == "pending"]
+    if user_id:
+        # ログインユーザー: Supabaseからタスク取得
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_tasks = cloud_db.get_user_tasks(user_id)
+        available_tasks = [type('Task', (), {
+            'id': t['id'], 'title': t['title'], 'duration': t.get('duration', 25),
+            'break_duration': t.get('break_duration', 5), 'difficulty': t.get('difficulty', 3),
+            'priority': t.get('priority', 0), 'status': t.get('status', 'pending')
+        })() for t in cloud_tasks if t.get('status') == 'pending']
+    else:
+        # ゲスト: ローカルDBから取得
+        all_tasks = get_db().get_all_tasks()
+        available_tasks = [t for t in all_tasks if t.status == "pending"]
     
     return render_template('pages/moon_cycle.html',
                          active_cycle=active_cycle,
