@@ -1197,12 +1197,30 @@ class Database:
         """サイクルを完了"""
         conn = self.get_connection()
         cursor = conn.cursor()
+        
+        # サイクルのタスク数を取得（完了前に保存）
+        cursor.execute("""
+            SELECT COUNT(*) as total, 
+                   SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed
+            FROM cycle_tasks WHERE cycle_id = ?
+        """, (cycle_id,))
+        row = cursor.fetchone()
+        target_count = row['total'] if row else 0
+        completed_count = row['completed'] if row else 0
+        
         cursor.execute("""
             UPDATE moon_cycles 
             SET status = 'completed',
-                review = ?
+                review = ?,
+                target_task_count = ?,
+                completed_task_count = ?,
+                self_rating = ?,
+                good_points = ?,
+                improvement_points = ?,
+                next_actions = ?
             WHERE id = ?
-        """, (f"評価:{self_rating}/5\n良かった点:{good_points}\n改善点:{improvement_points}\n次のアクション:{next_actions}", cycle_id))
+        """, (f"評価:{self_rating}/5\n良かった点:{good_points}\n改善点:{improvement_points}\n次のアクション:{next_actions}", 
+              target_count, completed_count, self_rating, good_points, improvement_points, next_actions, cycle_id))
         conn.commit()
         conn.close()
     
