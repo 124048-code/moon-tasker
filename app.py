@@ -642,8 +642,16 @@ def create_moon_cycle():
 def add_task_to_cycle(cycle_id):
     """サイクルにタスクを追加"""
     task_ids = request.form.getlist('task_ids')
+    print(f"[ADD_TASK_TO_CYCLE] cycle_id={cycle_id}, task_ids={task_ids}")
     for task_id in task_ids:
-        get_db().add_task_to_cycle(cycle_id, int(task_id))
+        # ゲストユーザーはint、ログインユーザーはUUID(string)
+        try:
+            task_id_converted = int(task_id)
+        except ValueError:
+            # UUIDの場合はstringのまま使用（ただしローカルDBでは使えない）
+            print(f"[ADD_TASK_TO_CYCLE] UUID task_id detected: {task_id} - skipping for local DB")
+            continue
+        get_db().add_task_to_cycle(cycle_id, task_id_converted)
     return redirect(url_for('moon_cycle'))
 
 

@@ -426,22 +426,54 @@ class SupabaseDB:
     # === プレイリストタスク関連 ===
     
     def get_playlist_tasks(self, playlist_id: str) -> list:
-        """プレイリスト内のタスクを取得"""
+        """プレイリスト内のタスクを取得（2段階フェッチ）"""
         if not SUPABASE_URL:
             print("[GET_PLAYLIST_TASKS] No SUPABASE_URL")
             return []
         
         try:
-            # Note: task_orderカラムはSupabaseテーブルに存在しないため除外
-            url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=task_id,user_tasks(*)"
-            print(f"[GET_PLAYLIST_TASKS] URL: {url}")
-            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
-            print(f"[GET_PLAYLIST_TASKS] Status: {response.status_code}")
-            print(f"[GET_PLAYLIST_TASKS] Response: {response.text}")
-            if response.status_code == 200:
-                return response.json()
+            # Step 1: プレイリストに紐付いたtask_idのリストを取得
+            url1 = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=task_id"
+            print(f"[GET_PLAYLIST_TASKS] Step 1 URL: {url1}")
+            response1 = httpx.get(url1, headers=self._get_headers(), timeout=10.0)
+            print(f"[GET_PLAYLIST_TASKS] Step 1 Status: {response1.status_code}, Response: {response1.text}")
+            
+            if response1.status_code != 200:
+                return []
+            
+            task_id_rows = response1.json()
+            if not task_id_rows:
+                print("[GET_PLAYLIST_TASKS] No tasks in playlist")
+                return []
+            
+            task_ids = [row['task_id'] for row in task_id_rows if row.get('task_id')]
+            print(f"[GET_PLAYLIST_TASKS] Found task_ids: {task_ids}")
+            
+            if not task_ids:
+                return []
+            
+            # Step 2: タスクの詳細を取得
+            # Supabase "in" クエリは (id1,id2,id3) 形式
+            ids_param = ",".join(f'"{tid}"' for tid in task_ids)
+            url2 = f"{SUPABASE_URL}/rest/v1/user_tasks?id=in.({ids_param})&select=*"
+            print(f"[GET_PLAYLIST_TASKS] Step 2 URL: {url2}")
+            response2 = httpx.get(url2, headers=self._get_headers(), timeout=10.0)
+            print(f"[GET_PLAYLIST_TASKS] Step 2 Status: {response2.status_code}, Response: {response2.text}")
+            
+            if response2.status_code == 200:
+                tasks = response2.json()
+                # タスク順序を維持（playlist_tasksの順序に従う）
+                task_map = {t['id']: t for t in tasks}
+                ordered_tasks = []
+                for tid in task_ids:
+                    if tid in task_map:
+                        ordered_tasks.append({'task_id': tid, 'user_tasks': task_map[tid]})
+                print(f"[GET_PLAYLIST_TASKS] Returning {len(ordered_tasks)} tasks")
+                return ordered_tasks
         except Exception as e:
             print(f"プレイリストタスク取得エラー: {e}")
+            import traceback
+            traceback.print_exc()
         return []
     
     def add_task_to_playlist(self, playlist_id: str, task_id: str, order: int = 0) -> bool:
