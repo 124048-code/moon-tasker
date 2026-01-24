@@ -453,8 +453,8 @@ class SupabaseDB:
                 return []
             
             # Step 2: タスクの詳細を取得
-            # Supabase "in" クエリは (id1,id2,id3) 形式
-            ids_param = ",".join(f'"{tid}"' for tid in task_ids)
+            # Supabase "in" クエリは (id1,id2,id3) 形式 - UUIDは引用符不要
+            ids_param = ",".join(task_ids)
             url2 = f"{SUPABASE_URL}/rest/v1/user_tasks?id=in.({ids_param})&select=*"
             print(f"[GET_PLAYLIST_TASKS] Step 2 URL: {url2}")
             response2 = httpx.get(url2, headers=self._get_headers(), timeout=10.0)
