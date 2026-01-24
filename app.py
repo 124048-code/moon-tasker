@@ -212,8 +212,21 @@ def get_playlist_tasks(playlist_id):
         
         estimated_end = time_cursor.strftime('%H:%M')
         
+        # タスクをJSON変換可能な辞書リストに変換
+        tasks_json = [{
+            'id': t.id,
+            'title': t.title,
+            'duration': t.duration,
+            'break_duration': t.break_duration,
+            'difficulty': t.difficulty,
+            'priority': t.priority,
+            'status': t.status
+        } for t in tasks]
+        
+        print(f"[TIMER_TASKS] Rendering with {len(tasks_json)} tasks")
+        
         return render_template('partials/playlist_tasks.html',
-                             tasks=tasks,
+                             tasks=tasks_json,
                              schedule=schedule,
                              estimated_end=estimated_end)
     except Exception as e:
