@@ -156,19 +156,25 @@ def timer():
 def get_playlist_tasks(playlist_id):
     """プレイリストのタスク一覧を取得（HTMX用）"""
     user_id = session.get('user_id')
+    print(f"[TIMER_TASKS] ========== START ==========")
+    print(f"[TIMER_TASKS] playlist_id={playlist_id}, user_id={user_id}")
     
     try:
         if user_id:
             # ログインユーザー: Supabaseからタスク取得
             from moon_tasker.cloud.supabase_client import get_cloud_db
             cloud_db = get_cloud_db()
+            print(f"[TIMER_TASKS] Calling cloud_db.get_playlist_tasks({playlist_id})")
             playlist_task_data = cloud_db.get_playlist_tasks(playlist_id)
-            print(f"[TIMER_TASKS] playlist_id={playlist_id}, data={playlist_task_data}")
+            print(f"[TIMER_TASKS] Raw response: {playlist_task_data}")
+            print(f"[TIMER_TASKS] Response type: {type(playlist_task_data)}, length: {len(playlist_task_data) if playlist_task_data else 0}")
             
             # JOINされたuser_tasksデータを直接使用
             tasks = []
             for pt in playlist_task_data:
+                print(f"[TIMER_TASKS] Processing pt: {pt}")
                 user_task = pt.get('user_tasks')
+                print(f"[TIMER_TASKS] user_task: {user_task}")
                 if user_task:
                     tasks.append(type('Task', (), {
                         'id': user_task['id'],
@@ -179,7 +185,9 @@ def get_playlist_tasks(playlist_id):
                         'priority': user_task.get('priority', 0),
                         'status': user_task.get('status', 'pending')
                     })())
+            print(f"[TIMER_TASKS] Final tasks count: {len(tasks)}")
         else:
+            print(f"[TIMER_TASKS] Guest user, using local DB")
             # ゲスト: ローカルDBから取得
             tasks = get_db().get_playlist_tasks(int(playlist_id))
         
