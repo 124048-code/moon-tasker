@@ -241,24 +241,19 @@ def get_playlist_tasks(playlist_id):
 
 @app.route('/timer/complete', methods=['POST'])
 def complete_task():
-    """タスク完了処理"""
+    """タスク完了処理（タスクのステータスは変更しない - 再利用可能）"""
     task_id = request.form.get('task_id')  # stringとして取得（UUID対応）
     duration = request.form.get('duration', 25, type=int)
     user_id = session.get('user_id')
     
     print(f"[COMPLETE_TASK] task_id={task_id}, user_id={user_id}, duration={duration}")
     
-    if user_id and task_id:
-        # ログインユーザー: Supabaseでタスクステータスを更新
-        from moon_tasker.cloud.supabase_client import get_cloud_db
-        cloud_db = get_cloud_db()
-        cloud_db.update_task_status(user_id, task_id, "completed")
-    elif task_id:
-        # ゲスト: ローカルDBでタスクステータスを更新
+    # タスクのステータスは変更しない（再利用可能にするため）
+    # ゲストユーザーの場合のみ完了ログを記録
+    if not user_id and task_id:
         try:
             task_id_int = int(task_id)
             if task_id_int > 0:
-                get_db().update_task_status(task_id_int, "completed")
                 get_db().log_activity(task_id_int, "completed")
         except ValueError:
             print(f"[COMPLETE_TASK] Invalid task_id for guest: {task_id}")
@@ -661,7 +656,8 @@ def moon_cycle():
                          progress=progress,
                          completed_count=completed_count,
                          total_count=total_count,
-                         available_tasks=available_tasks)
+                         available_tasks=available_tasks,
+                         is_logged_in=bool(user_id))
 
 
 @app.route('/moon-cycle/create', methods=['POST'])
@@ -775,11 +771,37 @@ def collection():
 @app.route('/creature')
 def creature():
     """生命体画面"""
-    # デバッグログ
-    print(f"[CREATURE_GET] guest_id: {get_guest_id()}")
+    user_id = session.get('user_id')
+    print(f"[CREATURE_GET] guest_id: {get_guest_id()}, user_id: {user_id}")
     print(f"[CREATURE_GET] session keys: {list(session.keys())}")
     
-    current_creature = get_creature_system().get_creature()
+    if user_id:
+        # ログインユーザー: Supabaseから生命体を取得
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        creature_data = cloud_db.get_creature(user_id)
+        print(f"[CREATURE_GET] Supabase creature_data: {creature_data}")
+        
+        if creature_data:
+            # Supabaseデータを Creature-like オブジェクトに変換
+            current_creature = type('Creature', (), {
+                'id': creature_data.get('id'),
+                'name': creature_data.get('name', 'ルナ'),
+                'mood': creature_data.get('mood', 100),
+                'evolution_stage': creature_data.get('evolution_stage', 1),
+                'status': creature_data.get('status', 'active'),
+                'last_interaction': creature_data.get('last_interaction'),
+                'cooldown_until': creature_data.get('cooldown_until'),
+                'total_tasks': creature_data.get('total_tasks', 0),
+                'total_minutes': creature_data.get('total_minutes', 0),
+                'created_at': creature_data.get('created_at')
+            })()
+        else:
+            current_creature = None
+    else:
+        # ゲスト: ローカルDBから取得
+        current_creature = get_creature_system().get_creature()
+    
     print(f"[CREATURE_GET] found creature: {current_creature.name if current_creature else 'None'}")
     ctx = get_creature_context(current_creature)
     
@@ -828,9 +850,10 @@ def creature():
 def start_creature():
     """生命体育成開始（誓約確認後）"""
     name = request.form.get('name', 'ルナ').strip()
+    user_id = session.get('user_id')
     
     # デバッグログ
-    print(f"[CREATURE_START] POST received, name={name}")
+    print(f"[CREATURE_START] POST received, name={name}, user_id={user_id}")
     print(f"[CREATURE_START] session keys: {list(session.keys())}")
     print(f"[CREATURE_START] guest_id: {get_guest_id()}")
     
@@ -841,8 +864,26 @@ def start_creature():
             print(f"[CREATURE_START] NG word detected: {ng}")
             return redirect(url_for('creature'))
     
-    creature_id = get_creature_system().start_new_creature(name)
-    print(f"[CREATURE_START] Creature created with id: {creature_id}, guest_id: {get_guest_id()}")
+    if user_id:
+        # ログインユーザー: Supabaseに新しい生命体を保存
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        creature_data = {
+            'name': name,
+            'mood': 100,
+            'evolution_stage': 1,
+            'status': 'active',
+            'last_interaction': datetime.now().isoformat(),
+            'total_tasks': 0,
+            'total_minutes': 0
+        }
+        success = cloud_db.save_creature(user_id, creature_data)
+        print(f"[CREATURE_START] Supabase save: {success}")
+    else:
+        # ゲスト: ローカルDBに保存
+        creature_id = get_creature_system().start_new_creature(name)
+        print(f"[CREATURE_START] Creature created with id: {creature_id}, guest_id: {get_guest_id()}")
+    
     return redirect(url_for('creature'))
 
 

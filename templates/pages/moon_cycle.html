@@ -11,6 +11,14 @@
     <span class="text-muted">現在の月: {{ moon_phase }}</span>
 </div>
 
+{% if is_logged_in %}
+<div class="card" style="background: rgba(255, 193, 7, 0.1); border: 1px solid #ffc107; padding: 16px;">
+    <p class="text-sm" style="color: #ffc107; margin: 0;">
+        ⚠️ 目標サイクル機能は現在ローカル専用です。クラウドタスクの追加は近日対応予定です。
+    </p>
+</div>
+{% endif %}
+
 {% if active_cycle %}
 <!-- 進捗カード -->
 <div class="card text-center">
