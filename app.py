@@ -433,16 +433,27 @@ def move_task_in_playlist(playlist_id, task_id, direction):
         from moon_tasker.cloud.supabase_client import get_cloud_db
         cloud_db = get_cloud_db()
         tasks = cloud_db.get_playlist_tasks(playlist_id)
-        task_ids = [str(t.get('id') if isinstance(t, dict) else t.id) for t in tasks]
+        print(f"[MOVE_TASK] playlist_id={playlist_id}, task_id={task_id}, direction={direction}")
+        print(f"[MOVE_TASK] tasks from DB: {tasks}")
+        
+        # get_playlist_tasksは {'task_id': '...', 'user_tasks': {...}} 形式を返す
+        task_ids = [str(t.get('task_id')) for t in tasks if t.get('task_id')]
+        print(f"[MOVE_TASK] task_ids: {task_ids}")
+        
         str_task_id = str(task_id)
         
         if str_task_id in task_ids:
             idx = task_ids.index(str_task_id)
+            print(f"[MOVE_TASK] Found at index {idx}")
             if direction == 'up' and idx > 0:
                 task_ids[idx], task_ids[idx-1] = task_ids[idx-1], task_ids[idx]
+                print(f"[MOVE_TASK] Moved up: {task_ids}")
             elif direction == 'down' and idx < len(task_ids) - 1:
                 task_ids[idx], task_ids[idx+1] = task_ids[idx+1], task_ids[idx]
+                print(f"[MOVE_TASK] Moved down: {task_ids}")
             cloud_db.reorder_playlist_tasks(playlist_id, task_ids)
+        else:
+            print(f"[MOVE_TASK] task_id {str_task_id} not found in {task_ids}")
     else:
         # ゲストユーザー: ローカルDB
         try:
