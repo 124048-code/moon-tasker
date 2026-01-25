@@ -423,6 +423,27 @@ class SupabaseDB:
             print(f"タスク削除エラー: {e}")
         return False
     
+    def update_task_status(self, user_id: str, task_id: str, status: str) -> bool:
+        """タスクのステータスを更新（例: pending -> completed）"""
+        if not SUPABASE_URL:
+            print("[UPDATE_TASK_STATUS] No SUPABASE_URL")
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_tasks?id=eq.{task_id}&user_id=eq.{user_id}"
+            print(f"[UPDATE_TASK_STATUS] URL: {url}, status: {status}")
+            response = httpx.patch(
+                url, 
+                headers=self._get_headers(), 
+                json={"status": status}, 
+                timeout=10.0
+            )
+            print(f"[UPDATE_TASK_STATUS] Response: {response.status_code}")
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"タスクステータス更新エラー: {e}")
+        return False
+    
     # === プレイリストタスク関連 ===
     
     def get_playlist_tasks(self, playlist_id: str) -> list:

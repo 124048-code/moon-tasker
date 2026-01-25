@@ -242,12 +242,26 @@ def get_playlist_tasks(playlist_id):
 @app.route('/timer/complete', methods=['POST'])
 def complete_task():
     """タスク完了処理"""
-    task_id = request.form.get('task_id', type=int)
+    task_id = request.form.get('task_id')  # stringとして取得（UUID対応）
     duration = request.form.get('duration', 25, type=int)
+    user_id = session.get('user_id')
     
-    if task_id and task_id > 0:
-        get_db().update_task_status(task_id, "completed")
-        get_db().log_activity(task_id, "completed")
+    print(f"[COMPLETE_TASK] task_id={task_id}, user_id={user_id}, duration={duration}")
+    
+    if user_id and task_id:
+        # ログインユーザー: Supabaseでタスクステータスを更新
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_db.update_task_status(user_id, task_id, "completed")
+    elif task_id:
+        # ゲスト: ローカルDBでタスクステータスを更新
+        try:
+            task_id_int = int(task_id)
+            if task_id_int > 0:
+                get_db().update_task_status(task_id_int, "completed")
+                get_db().log_activity(task_id_int, "completed")
+        except ValueError:
+            print(f"[COMPLETE_TASK] Invalid task_id for guest: {task_id}")
     
     get_creature_system().on_task_completed(duration)
     
