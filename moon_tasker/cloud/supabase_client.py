@@ -432,8 +432,8 @@ class SupabaseDB:
             return []
         
         try:
-            # Step 1: プレイリストに紐付いたtask_idのリストを取得
-            url1 = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=task_id"
+            # Step 1: プレイリストに紐付いたtask_idのリストを取得（positionでソート）
+            url1 = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=task_id&order=position.asc"
             print(f"[GET_PLAYLIST_TASKS] Step 1 URL: {url1}")
             response1 = httpx.get(url1, headers=self._get_headers(), timeout=10.0)
             print(f"[GET_PLAYLIST_TASKS] Step 1 Status: {response1.status_code}, Response: {response1.text}")
@@ -476,7 +476,7 @@ class SupabaseDB:
             traceback.print_exc()
         return []
     
-    def add_task_to_playlist(self, playlist_id: str, task_id: str, order: int = 0) -> bool:
+    def add_task_to_playlist(self, playlist_id: str, task_id: str, position: int = 0) -> bool:
         """タスクをプレイリストに追加"""
         if not SUPABASE_URL:
             print("[ADD_TASK_TO_PLAYLIST] No SUPABASE_URL")
@@ -484,8 +484,8 @@ class SupabaseDB:
         
         try:
             url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks"
-            # Note: task_orderカラムはSupabaseテーブルに存在しないため除外
-            data = {"playlist_id": playlist_id, "task_id": task_id}
+            # positionカラムを使用して順序を保存
+            data = {"playlist_id": playlist_id, "task_id": task_id, "position": position}
             print(f"[ADD_TASK_TO_PLAYLIST] URL: {url}")
             print(f"[ADD_TASK_TO_PLAYLIST] Data: {data}")
             response = httpx.post(
@@ -530,9 +530,9 @@ class SupabaseDB:
             del_response = httpx.delete(delete_url, headers=self._get_headers(), timeout=10.0)
             print(f"[REORDER_PLAYLIST_TASKS] Delete status: {del_response.status_code}")
             
-            # 新しい順序でタスクを再追加
-            for task_id in task_ids:
-                self.add_task_to_playlist(playlist_id, str(task_id))
+            # 新しい順序でタスクを再追加（positionを設定）
+            for idx, task_id in enumerate(task_ids):
+                self.add_task_to_playlist(playlist_id, str(task_id), position=idx)
             
             print("[REORDER_PLAYLIST_TASKS] Reorder completed")
             return True
