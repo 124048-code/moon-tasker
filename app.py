@@ -78,7 +78,7 @@ def get_badge_system():
 
 def get_creature_context(creature):
     """生命体のコンテキスト情報を取得"""
-    if not creature or creature.status not in ["active", "completed"]:
+    if not creature or getattr(creature, 'status', None) not in ["active", "completed"]:
         return {
             'creature': None,
             'emotion': None,
@@ -86,17 +86,36 @@ def get_creature_context(creature):
             'creature_image': None
         }
     
-    get_creature_system().check_neglect()
-    emotion = get_creature_system().get_emotion_state(creature)
-    warning = get_creature_system().get_warning_message(creature)
-    image_filename = get_creature_system().get_image_filename(creature)
-    
-    return {
-        'creature': creature,
-        'emotion': emotion,
-        'warning': warning,
-        'creature_image': f'/static/images/creature/{image_filename}'
-    }
+    try:
+        get_creature_system().check_neglect()
+        emotion = get_creature_system().get_emotion_state(creature)
+        warning = get_creature_system().get_warning_message(creature)
+        
+        # 画像ファイル名を取得（失敗時はデフォルト画像）
+        try:
+            image_filename = get_creature_system().get_image_filename(creature)
+        except Exception as e:
+            print(f"[GET_CREATURE_CONTEXT] Image filename error: {e}")
+            # デフォルト画像: stage1のcontent（たまご）
+            stage = getattr(creature, 'evolution_stage', 1) or 1
+            image_filename = f"stage{stage}_content.png"
+        
+        return {
+            'creature': creature,
+            'emotion': emotion,
+            'warning': warning,
+            'creature_image': f'/static/images/creature/{image_filename}'
+        }
+    except Exception as e:
+        print(f"[GET_CREATURE_CONTEXT] Error: {e}")
+        # 最小限のコンテキストを返す
+        stage = getattr(creature, 'evolution_stage', 1) or 1
+        return {
+            'creature': creature,
+            'emotion': {'name': '普通', 'color': '#ffffff'},
+            'warning': None,
+            'creature_image': f'/static/images/creature/stage{stage}_content.png'
+        }
 
 
 # ============ ROUTES ============
