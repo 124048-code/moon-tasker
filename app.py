@@ -612,40 +612,78 @@ def moon_cycle():
     """月のサイクル画面"""
     user_id = session.get('user_id')
     
-    active_cycle = get_db().get_active_moon_cycle()
-    all_cycles = get_db().get_all_moon_cycles()
-    completed_cycles = [c for c in all_cycles if c.status == "completed"][:5]
-    
     moon_emoji = moon_calc.get_moon_emoji()
     moon_phase = moon_calc.get_moon_phase_name()
     
-    cycle_tasks = []
-    progress = 0
-    completed_count = 0
-    total_count = 0
-    
-    if active_cycle:
-        cycle_tasks = get_db().get_cycle_tasks(active_cycle.id)
-        completed_count = sum(1 for t in cycle_tasks if getattr(t, '_cycle_completed', False))
-        total_count = len(cycle_tasks)
-        if total_count > 0:
-            progress = (completed_count / total_count) * 100
-    
-    # 利用可能なタスク（サイクルに追加可能）
     if user_id:
-        # ログインユーザー: Supabaseからタスク取得
+        # ログインユーザー: Supabaseからデータ取得
         from moon_tasker.cloud.supabase_client import get_cloud_db
         cloud_db = get_cloud_db()
+        
+        # アクティブサイクルを取得
+        active_cycle_data = cloud_db.get_active_moon_cycle(user_id)
+        if active_cycle_data:
+            active_cycle = type('MoonCycle', (), {
+                'id': active_cycle_data['id'],
+                'cycle_start': active_cycle_data.get('cycle_start', ''),
+                'cycle_end': active_cycle_data.get('cycle_end', ''),
+                'goal': active_cycle_data.get('goal', ''),
+                'status': active_cycle_data.get('status', 'active')
+            })()
+        else:
+            active_cycle = None
+        
+        # 完了済みサイクルを取得
+        all_cycles_data = cloud_db.get_user_moon_cycles(user_id)
+        completed_cycles = []
+        for c in all_cycles_data:
+            if c.get('status') == 'completed':
+                completed_cycles.append(type('MoonCycle', (), {
+                    'id': c['id'],
+                    'cycle_start': c.get('cycle_start', ''),
+                    'cycle_end': c.get('cycle_end', ''),
+                    'goal': c.get('goal', ''),
+                    'self_rating': c.get('self_rating', 0),
+                    'completed_task_count': c.get('completed_task_count', 0),
+                    'target_task_count': c.get('target_task_count', 0)
+                })())
+        completed_cycles = completed_cycles[:5]
+        
+        # サイクルタスクを取得
+        cycle_tasks = []
+        if active_cycle:
+            cycle_tasks_data = cloud_db.get_cycle_tasks(active_cycle.id)
+            for ct in cycle_tasks_data:
+                user_task = ct.get('user_tasks', {})
+                if user_task:
+                    task = type('Task', (), {
+                        'id': user_task.get('id'),
+                        'title': user_task.get('title', ''),
+                        'duration': user_task.get('duration', 25),
+                        '_cycle_completed': ct.get('completed', False)
+                    })()
+                    cycle_tasks.append(task)
+        
+        # 利用可能なタスク
         cloud_tasks = cloud_db.get_user_tasks(user_id)
         available_tasks = [type('Task', (), {
             'id': t['id'], 'title': t['title'], 'duration': t.get('duration', 25),
             'break_duration': t.get('break_duration', 5), 'difficulty': t.get('difficulty', 3),
             'priority': t.get('priority', 0), 'status': t.get('status', 'pending')
-        })() for t in cloud_tasks if t.get('status') == 'pending']
+        })() for t in cloud_tasks]
     else:
         # ゲスト: ローカルDBから取得
+        active_cycle = get_db().get_active_moon_cycle()
+        all_cycles = get_db().get_all_moon_cycles()
+        completed_cycles = [c for c in all_cycles if c.status == "completed"][:5]
+        cycle_tasks = get_db().get_cycle_tasks(active_cycle.id) if active_cycle else []
         all_tasks = get_db().get_all_tasks()
         available_tasks = [t for t in all_tasks if t.status == "pending"]
+    
+    # 進捗計算
+    completed_count = sum(1 for t in cycle_tasks if getattr(t, '_cycle_completed', False))
+    total_count = len(cycle_tasks)
+    progress = (completed_count / total_count) * 100 if total_count > 0 else 0
     
     return render_template('pages/moon_cycle.html',
                          active_cycle=active_cycle,
@@ -663,56 +701,99 @@ def moon_cycle():
 @app.route('/moon-cycle/create', methods=['POST'])
 def create_moon_cycle():
     """新規サイクル作成"""
+    user_id = session.get('user_id')
     start_date = request.form.get('start_date')
     end_date = request.form.get('end_date')
     goal = request.form.get('goal', '')
     
-    cycle = MoonCycle(
-        cycle_start=start_date,
-        cycle_end=end_date,
-        goal=goal,
-        review="",
-        target_task_count=0,
-        completed_task_count=0,
-        status="active"
-    )
-    get_db().create_moon_cycle(cycle)
+    if user_id:
+        # ログインユーザー: Supabaseに保存
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_db.create_moon_cycle(user_id, {
+            'cycle_start': start_date,
+            'cycle_end': end_date,
+            'goal': goal
+        })
+    else:
+        # ゲスト: ローカルDBに保存
+        cycle = MoonCycle(
+            cycle_start=start_date,
+            cycle_end=end_date,
+            goal=goal,
+            review="",
+            target_task_count=0,
+            completed_task_count=0,
+            status="active"
+        )
+        get_db().create_moon_cycle(cycle)
     return redirect(url_for('moon_cycle'))
 
 
-@app.route('/moon-cycle/<int:cycle_id>/add-task', methods=['POST'])
+@app.route('/moon-cycle/<cycle_id>/add-task', methods=['POST'])
 def add_task_to_cycle(cycle_id):
     """サイクルにタスクを追加"""
+    user_id = session.get('user_id')
     task_ids = request.form.getlist('task_ids')
     print(f"[ADD_TASK_TO_CYCLE] cycle_id={cycle_id}, task_ids={task_ids}")
-    for task_id in task_ids:
-        # ゲストユーザーはint、ログインユーザーはUUID(string)
-        try:
-            task_id_converted = int(task_id)
-        except ValueError:
-            # UUIDの場合はstringのまま使用（ただしローカルDBでは使えない）
-            print(f"[ADD_TASK_TO_CYCLE] UUID task_id detected: {task_id} - skipping for local DB")
-            continue
-        get_db().add_task_to_cycle(cycle_id, task_id_converted)
+    
+    if user_id:
+        # ログインユーザー: SupabaseにUUIDタスクを追加
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        for task_id in task_ids:
+            cloud_db.add_task_to_cycle(cycle_id, task_id)
+    else:
+        # ゲスト: ローカルDBに整数タスクIDを追加
+        for task_id in task_ids:
+            try:
+                task_id_int = int(task_id)
+                cycle_id_int = int(cycle_id)
+                get_db().add_task_to_cycle(cycle_id_int, task_id_int)
+            except ValueError:
+                print(f"[ADD_TASK_TO_CYCLE] Invalid ID: task={task_id}, cycle={cycle_id}")
+                continue
     return redirect(url_for('moon_cycle'))
 
 
-@app.route('/moon-cycle/<int:cycle_id>/complete', methods=['POST'])
+@app.route('/moon-cycle/<cycle_id>/complete', methods=['POST'])
 def complete_moon_cycle(cycle_id):
     """サイクル完了"""
+    user_id = session.get('user_id')
     self_rating = request.form.get('self_rating', 0, type=int)
     good_points = request.form.get('good_points', '')
     improvement_points = request.form.get('improvement_points', '')
     next_actions = request.form.get('next_actions', '')
     
-    get_db().complete_moon_cycle(cycle_id, self_rating, good_points, improvement_points, next_actions)
+    if user_id:
+        # ログインユーザー: Supabaseで完了
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_db.complete_moon_cycle(cycle_id, {
+            'self_rating': self_rating,
+            'good_points': good_points,
+            'improvement_points': improvement_points,
+            'next_actions': next_actions
+        })
+    else:
+        # ゲスト: ローカルDBで完了
+        get_db().complete_moon_cycle(int(cycle_id), self_rating, good_points, improvement_points, next_actions)
     return redirect(url_for('moon_cycle'))
 
 
-@app.route('/moon-cycle/<int:cycle_id>/delete', methods=['POST'])
+@app.route('/moon-cycle/<cycle_id>/delete', methods=['POST'])
 def delete_moon_cycle(cycle_id):
     """サイクル削除"""
-    get_db().delete_moon_cycle(cycle_id)
+    user_id = session.get('user_id')
+    
+    if user_id:
+        # ログインユーザー: Supabaseから削除
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        cloud_db.delete_moon_cycle(cycle_id)
+    else:
+        # ゲスト: ローカルDBから削除
+        get_db().delete_moon_cycle(int(cycle_id))
     return redirect(url_for('moon_cycle'))
 
 

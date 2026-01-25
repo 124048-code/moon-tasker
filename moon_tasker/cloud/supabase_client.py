@@ -215,19 +215,31 @@ class SupabaseDB:
         return None
     
     def save_creature(self, user_id: str, creature_data: Dict[str, Any]) -> bool:
-        """生命体を保存"""
+        """生命体を保存（新規作成またはupsert）"""
         if not SUPABASE_URL:
+            print("[SAVE_CREATURE] No SUPABASE_URL")
             return False
         
         try:
             creature_data["user_id"] = user_id
             url = f"{SUPABASE_URL}/rest/v1/creatures"
             headers = self._get_headers()
-            headers["Prefer"] = "resolution=merge-duplicates"
+            # upsertのためにuser_idで競合を解決
+            headers["Prefer"] = "return=representation"
+            
+            print(f"[SAVE_CREATURE] URL: {url}")
+            print(f"[SAVE_CREATURE] Data: {creature_data}")
+            
             response = httpx.post(url, headers=headers, json=creature_data, timeout=10.0)
+            
+            print(f"[SAVE_CREATURE] Status: {response.status_code}")
+            print(f"[SAVE_CREATURE] Response: {response.text[:500] if response.text else 'empty'}")
+            
             return response.status_code in [200, 201]
         except Exception as e:
-            print(f"生命体保存エラー: {e}")
+            print(f"[SAVE_CREATURE] Error: {e}")
+            import traceback
+            traceback.print_exc()
         return False
     
     # === フレンド ===
@@ -604,6 +616,140 @@ class SupabaseDB:
             if self.save_user_badge(user_id, name):
                 count += 1
         return count
+    
+    # === 月のサイクル（Moon Cycle） ===
+    
+    def get_user_moon_cycles(self, user_id: str) -> list:
+        """ユーザーの月サイクル一覧を取得"""
+        if not SUPABASE_URL:
+            return []
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_moon_cycles?user_id=eq.{user_id}&select=*&order=created_at.desc"
+            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[GET_USER_MOON_CYCLES] Status: {response.status_code}")
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(f"[GET_USER_MOON_CYCLES] Error: {e}")
+        return []
+    
+    def get_active_moon_cycle(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """アクティブな月サイクルを取得"""
+        if not SUPABASE_URL:
+            return None
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_moon_cycles?user_id=eq.{user_id}&status=eq.active&select=*&limit=1"
+            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[GET_ACTIVE_MOON_CYCLE] Status: {response.status_code}")
+            if response.status_code == 200:
+                data = response.json()
+                return data[0] if data else None
+        except Exception as e:
+            print(f"[GET_ACTIVE_MOON_CYCLE] Error: {e}")
+        return None
+    
+    def create_moon_cycle(self, user_id: str, cycle_data: Dict[str, Any]) -> Optional[str]:
+        """新しい月サイクルを作成"""
+        if not SUPABASE_URL:
+            return None
+        
+        try:
+            cycle_data["user_id"] = user_id
+            cycle_data["status"] = "active"
+            url = f"{SUPABASE_URL}/rest/v1/user_moon_cycles"
+            headers = self._get_headers()
+            headers["Prefer"] = "return=representation"
+            
+            print(f"[CREATE_MOON_CYCLE] Data: {cycle_data}")
+            response = httpx.post(url, headers=headers, json=cycle_data, timeout=10.0)
+            print(f"[CREATE_MOON_CYCLE] Status: {response.status_code}, Response: {response.text[:200] if response.text else 'empty'}")
+            
+            if response.status_code in [200, 201]:
+                result = response.json()
+                return result[0]["id"] if result else None
+        except Exception as e:
+            print(f"[CREATE_MOON_CYCLE] Error: {e}")
+        return None
+    
+    def get_cycle_tasks(self, cycle_id: str) -> list:
+        """サイクルに紐付いたタスクを取得"""
+        if not SUPABASE_URL:
+            return []
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_cycle_tasks?cycle_id=eq.{cycle_id}&select=task_id,completed,user_tasks(*)"
+            response = httpx.get(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[GET_CYCLE_TASKS] Status: {response.status_code}")
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(f"[GET_CYCLE_TASKS] Error: {e}")
+        return []
+    
+    def add_task_to_cycle(self, cycle_id: str, task_id: str) -> bool:
+        """タスクをサイクルに追加"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_cycle_tasks"
+            headers = self._get_headers()
+            headers["Prefer"] = "return=minimal"
+            
+            response = httpx.post(
+                url,
+                headers=headers,
+                json={"cycle_id": cycle_id, "task_id": task_id, "completed": False},
+                timeout=10.0
+            )
+            print(f"[ADD_TASK_TO_CYCLE] Status: {response.status_code}")
+            return response.status_code in [200, 201]
+        except Exception as e:
+            print(f"[ADD_TASK_TO_CYCLE] Error: {e}")
+        return False
+    
+    def complete_moon_cycle(self, cycle_id: str, review_data: Dict[str, Any]) -> bool:
+        """サイクルを完了"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_moon_cycles?id=eq.{cycle_id}"
+            update_data = {
+                "status": "completed",
+                "self_rating": review_data.get("self_rating", 0),
+                "good_points": review_data.get("good_points", ""),
+                "improvement_points": review_data.get("improvement_points", ""),
+                "next_actions": review_data.get("next_actions", "")
+            }
+            
+            response = httpx.patch(url, headers=self._get_headers(), json=update_data, timeout=10.0)
+            print(f"[COMPLETE_MOON_CYCLE] Status: {response.status_code}")
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"[COMPLETE_MOON_CYCLE] Error: {e}")
+        return False
+    
+    def delete_moon_cycle(self, cycle_id: str) -> bool:
+        """サイクルを削除"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            # まずサイクルに紐付いたタスクを削除
+            task_url = f"{SUPABASE_URL}/rest/v1/user_cycle_tasks?cycle_id=eq.{cycle_id}"
+            httpx.delete(task_url, headers=self._get_headers(), timeout=10.0)
+            
+            # サイクル本体を削除
+            url = f"{SUPABASE_URL}/rest/v1/user_moon_cycles?id=eq.{cycle_id}"
+            response = httpx.delete(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[DELETE_MOON_CYCLE] Status: {response.status_code}")
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"[DELETE_MOON_CYCLE] Error: {e}")
+        return False
     
     # === フレンドリクエスト ===
     
