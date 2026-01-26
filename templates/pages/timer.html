@@ -13,16 +13,27 @@
     <p id="next-task-text" class="text-muted mt-2"></p>
     <p id="end-time-text" style="color: #ffc107; margin-top: 8px;"></p>
 
-    <!-- 音量コントロール (隠しメニューっぽく) -->
-    <div class="mt-4 flex justify-center items-center gap-4" style="opacity: 0.8;">
-        <button onclick="toggleBGM()" id="bgm-toggle-btn" class="text-sm border rounded px-2 py-1"
-            style="border-color: #666;">
-            🎵 BGM: OFF
+    <p id="end-time-text" style="color: #ffc107; margin-top: 8px;"></p>
+
+    <!-- 音量コントロール (Glassmorphism UI) -->
+    <div class="mt-6 flex justify-center items-center gap-4 p-3 rounded-full"
+        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); width: fit-content; margin: 24px auto 0;">
+
+        <button onclick="toggleBGM()" id="bgm-toggle-btn"
+            class="flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 hover:bg-white/10"
+            style="border: 1px solid #666; color: #aaa;">
+            <span id="bgm-icon">🔇</span>
+            <span id="bgm-text" class="text-sm font-medium">BGM OFF</span>
         </button>
-        <div class="flex items-center gap-2">
-            <span class="text-xs">🔊</span>
+
+        <div class="h-6 w-px bg-white/20"></div>
+
+        <div class="flex items-center gap-3 px-2">
+            <span class="text-xs text-muted">🔈</span>
             <input type="range" min="0" max="1" step="0.1" value="0.3"
-                onchange="window.audioManager.setBGMVolume(this.value)" class="w-20">
+                onchange="window.audioManager.setBGMVolume(this.value)"
+                class="w-24 accent-blue-400 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer">
+            <span class="text-xs text-muted">🔊</span>
         </div>
     </div>
 </div>
@@ -184,17 +195,25 @@
     function toggleBGM() {
         timerState.playBgm = !timerState.playBgm;
         const btn = document.getElementById('bgm-toggle-btn');
+        const icon = document.getElementById('bgm-icon');
+        const text = document.getElementById('bgm-text');
+
         if (timerState.playBgm) {
-            btn.textContent = "🎵 BGM: ON";
             btn.style.borderColor = "#64b5f6";
             btn.style.color = "#64b5f6";
+            btn.style.backgroundColor = "rgba(100, 181, 246, 0.1)";
+            icon.textContent = "🎵";
+            text.textContent = "BGM ON";
+
             if (timerState.isRunning && !timerState.isPaused && !timerState.isBreak) {
                 window.audioManager.playBGM('focus.mp3');
             }
         } else {
-            btn.textContent = "🎵 BGM: OFF";
             btn.style.borderColor = "#666";
-            btn.style.color = "";
+            btn.style.color = "#aaa";
+            btn.style.backgroundColor = "transparent";
+            icon.textContent = "🔇";
+            text.textContent = "BGM OFF";
             window.audioManager.stopBGM();
         }
     }
@@ -265,6 +284,11 @@
         nextTaskText.textContent = nextTask ? `次: ${nextTask.title}` : '🎯 最後のタスクです！';
         updateTimerDisplay();
         timerState.intervalId = setInterval(tick, 1000);
+
+        // 休憩明けなど、タスク開始時にBGM再開（ONの場合）
+        if (timerState.playBgm && !timerState.isPaused) {
+            window.audioManager.playBGM('focus.mp3');
+        }
     }
 
     function startBreak() {

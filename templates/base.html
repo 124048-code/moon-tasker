@@ -142,6 +142,19 @@
             }
         });
     </script>
+
+    <!-- Audio Manager -->
+    <script src="{{ url_for('static', filename='js/audio_manager.js') }}"></script>
+    <script>
+        document.addEventListener('click', function (e) {
+            const target = e.target.closest('button, a.btn, .list-item');
+            if (target && !target.closest('input') && !target.closest('textarea')) {
+                if (target.type !== 'range' && window.audioManager) {
+                    window.audioManager.playSE('click.mp3');
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>
