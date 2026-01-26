@@ -41,7 +41,9 @@ class AudioManager {
         // Don't restart if already playing the same file
         if (this.bgm.src.includes(filename) && !this.bgm.paused) return;
 
-        this.bgm.src = `/static/audio/bgm/${filename}`;
+        // Add timestamp to prevent caching old empty files
+        const timestamp = new Date().getTime();
+        this.bgm.src = `/static/audio/bgm/${filename}?t=${timestamp}`;
         this.bgm.play().catch(e => console.log('BGM Play blocked (user interaction needed first):', e));
     }
 
@@ -51,7 +53,9 @@ class AudioManager {
 
     playSE(filename) {
         // Create a new Audio instance for overlapping SE
-        const tempSe = new Audio(`/static/audio/se/${filename}`);
+        // Add timestamp to prevent caching old empty files
+        const timestamp = new Date().getTime();
+        const tempSe = new Audio(`/static/audio/se/${filename}?t=${timestamp}`);
         tempSe.volume = this.isMuted ? 0 : this.seVolume;
         tempSe.play().catch(e => console.log('SE Play blocked:', e));
     }
