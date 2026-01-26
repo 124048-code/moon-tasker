@@ -2,6 +2,96 @@
 
 {% block title %}タイマー - Moon Tasker{% endblock %}
 
+{% block head %}
+<style>
+    /* Glassmorphism Audio Control Panel */
+    .audio-panel {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 999px;
+        padding: 8px 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .audio-panel:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    /* BGM Toggle Button */
+    .bgm-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: transparent;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .bgm-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        transform: scale(1.05);
+    }
+
+    .bgm-btn.active {
+        background: rgba(100, 181, 246, 0.2);
+        border-color: #64b5f6;
+        color: #64b5f6;
+        box-shadow: 0 0 10px rgba(100, 181, 246, 0.3);
+    }
+
+    /* Volume Slider */
+    .volume-slider-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .volume-slider {
+        -webkit-appearance: none;
+        width: 80px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #fff;
+        cursor: pointer;
+        transition: transform 0.2s;
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .volume-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+    }
+
+    .volume-slider.active::-webkit-slider-thumb {
+        background: #64b5f6;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1 class="page-title">タイマー ⏱️</h1>
 
@@ -13,27 +103,33 @@
     <p id="next-task-text" class="text-muted mt-2"></p>
     <p id="end-time-text" style="color: #ffc107; margin-top: 8px;"></p>
 
-    <p id="end-time-text" style="color: #ffc107; margin-top: 8px;"></p>
+    <!-- 音量コントロール (Refined Glassmorphism UI) -->
+    <div class="mt-8 flex justify-center">
+        <div class="audio-panel">
+            <!-- BGM Toggle -->
+            <button onclick="toggleBGM()" id="bgm-toggle-btn" class="bgm-btn" title="BGM ON/OFF">
+                <!-- SVG Icon (Music Note) -->
+                <svg id="bgm-icon-svg" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="1" y1="1" x2="23" y2="23"></line> <!-- Slash for OFF state initially -->
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+            </button>
 
-    <!-- 音量コントロール (Glassmorphism UI) -->
-    <div class="mt-6 flex justify-center items-center gap-4 p-3 rounded-full"
-        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); width: fit-content; margin: 24px auto 0;">
+            <div class="h-4 w-px bg-white/10"></div>
 
-        <button onclick="toggleBGM()" id="bgm-toggle-btn"
-            class="flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 hover:bg-white/10"
-            style="border: 1px solid #666; color: #aaa;">
-            <span id="bgm-icon">🔇</span>
-            <span id="bgm-text" class="text-sm font-medium">BGM OFF</span>
-        </button>
-
-        <div class="h-6 w-px bg-white/20"></div>
-
-        <div class="flex items-center gap-3 px-2">
-            <span class="text-xs text-muted">🔈</span>
-            <input type="range" min="0" max="1" step="0.1" value="0.3"
-                onchange="window.audioManager.setBGMVolume(this.value)"
-                class="w-24 accent-blue-400 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer">
-            <span class="text-xs text-muted">🔊</span>
+            <!-- Volume Slider -->
+            <div class="volume-slider-container">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                </svg>
+                <input type="range" min="0" max="1" step="0.1" value="0.3" id="bgm-volume-slider"
+                    oninput="window.audioManager.setBGMVolume(this.value); this.classList.add('active');"
+                    class="volume-slider">
+            </div>
         </div>
     </div>
 </div>
@@ -195,25 +291,35 @@
     function toggleBGM() {
         timerState.playBgm = !timerState.playBgm;
         const btn = document.getElementById('bgm-toggle-btn');
-        const icon = document.getElementById('bgm-icon');
-        const text = document.getElementById('bgm-text');
+        const iconSvg = document.getElementById('bgm-icon-svg');
+        const slider = document.getElementById('bgm-volume-slider');
 
         if (timerState.playBgm) {
-            btn.style.borderColor = "#64b5f6";
-            btn.style.color = "#64b5f6";
-            btn.style.backgroundColor = "rgba(100, 181, 246, 0.1)";
-            icon.textContent = "🎵";
-            text.textContent = "BGM ON";
+            btn.classList.add('active');
+            if (slider) slider.classList.add('active');
+
+            // Icon: Music Note
+            iconSvg.innerHTML = `
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+            `;
 
             if (timerState.isRunning && !timerState.isPaused && !timerState.isBreak) {
                 window.audioManager.playBGM('focus.mp3');
             }
         } else {
-            btn.style.borderColor = "#666";
-            btn.style.color = "#aaa";
-            btn.style.backgroundColor = "transparent";
-            icon.textContent = "🔇";
-            text.textContent = "BGM OFF";
+            btn.classList.remove('active');
+            if (slider) slider.classList.remove('active');
+
+            // Icon: Mute (Slash)
+            iconSvg.innerHTML = `
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+            `;
+
             window.audioManager.stopBGM();
         }
     }
