@@ -12,6 +12,19 @@
     <p id="status-text" style="font-size: 20px; margin-top: 16px; color: #ccc;">プレイリストを選択してください</p>
     <p id="next-task-text" class="text-muted mt-2"></p>
     <p id="end-time-text" style="color: #ffc107; margin-top: 8px;"></p>
+
+    <!-- 音量コントロール (隠しメニューっぽく) -->
+    <div class="mt-4 flex justify-center items-center gap-4" style="opacity: 0.8;">
+        <button onclick="toggleBGM()" id="bgm-toggle-btn" class="text-sm border rounded px-2 py-1"
+            style="border-color: #666;">
+            🎵 BGM: OFF
+        </button>
+        <div class="flex items-center gap-2">
+            <span class="text-xs">🔊</span>
+            <input type="range" min="0" max="1" step="0.1" value="0.3"
+                onchange="window.audioManager.setBGMVolume(this.value)" class="w-20">
+        </div>
+    </div>
 </div>
 
 <!-- プレイリスト選択 -->
@@ -158,8 +171,33 @@
         currentTaskIndex: 0,
         tasks: [],
         isBreak: false,
-        intervalId: null
+        intervalId: null,
+        playBgm: false  // BGM再生フラグ
     };
+
+    // 初期設定
+    window.addEventListener('DOMContentLoaded', () => {
+        // 前回の設定を復元できればするが、デフォルトはOFF推奨（突然鳴るとびっくりするので）
+        // ここでは明示的にユーザーがONにするまで鳴らさない
+    });
+
+    function toggleBGM() {
+        timerState.playBgm = !timerState.playBgm;
+        const btn = document.getElementById('bgm-toggle-btn');
+        if (timerState.playBgm) {
+            btn.textContent = "🎵 BGM: ON";
+            btn.style.borderColor = "#64b5f6";
+            btn.style.color = "#64b5f6";
+            if (timerState.isRunning && !timerState.isPaused && !timerState.isBreak) {
+                window.audioManager.playBGM('focus.mp3');
+            }
+        } else {
+            btn.textContent = "🎵 BGM: OFF";
+            btn.style.borderColor = "#666";
+            btn.style.color = "";
+            window.audioManager.stopBGM();
+        }
+    }
 
     const timerDisplay = document.getElementById('timer-display');
     const statusText = document.getElementById('status-text');
@@ -206,6 +244,11 @@
         document.body.classList.add('focus-mode');
 
         startTask();
+
+        // BGM再生
+        if (timerState.playBgm) {
+            window.audioManager.playBGM('focus.mp3');
+        }
     }
 
     function startTask() {
@@ -231,6 +274,11 @@
         statusText.textContent = `☕ 休憩中 (${task.break_duration}分)`;
         updateTimerDisplay();
         timerState.intervalId = setInterval(tick, 1000);
+
+        // 休憩中はBGMを停止
+        window.audioManager.stopBGM();
+        // 休憩用SEがあれば再生
+        // window.audioManager.playSE('break.mp3');
     }
 
     async function tick() {
@@ -245,6 +293,9 @@
             } else {
                 const task = timerState.tasks[timerState.currentTaskIndex];
                 await completeTask(task);
+
+                // タスク完了SE
+                window.audioManager.playSE('complete.mp3');
 
                 // 最後のタスクの場合は休憩をスキップしてすぐに完了
                 const isLastTask = timerState.currentTaskIndex >= timerState.tasks.length - 1;
@@ -272,6 +323,14 @@
     function togglePause() {
         timerState.isPaused = !timerState.isPaused;
         pauseBtn.textContent = timerState.isPaused ? '▶️ 再開' : '⏸️ 一時停止';
+
+        if (timerState.isPaused) {
+            window.audioManager.stopBGM();
+        } else {
+            if (timerState.playBgm && !timerState.isBreak) {
+                window.audioManager.playBGM('focus.mp3');
+            }
+        }
     }
 
     function showStopConfirm() {
@@ -286,6 +345,7 @@
     async function actuallyStop() {
         timerState.isRunning = false;
         clearInterval(timerState.intervalId);
+        window.audioManager.stopBGM();
 
         // サーバーに中止を通知（生命体の機嫌が下がる）
         await fetch('/timer/abort', { method: 'POST' });
@@ -342,6 +402,10 @@
         }
 
         document.getElementById('complete-dialog').classList.remove('hidden');
+
+        // プレイリスト完了用のSEがあればここで再生
+        // window.audioManager.playSE('fanfare.mp3');
+        window.audioManager.stopBGM();
     }
 
     function closeCompleteDialog() {
