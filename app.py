@@ -6,6 +6,8 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 from datetime import datetime, timedelta
 import os
 import sys
+import hashlib
+import time as time_module
 import json
 import uuid
 
@@ -19,10 +21,16 @@ from moon_tasker.logic.moon_cycle import MoonCycleCalculator
 from moon_tasker.logic.badge_logic import BadgeSystem
 from moon_tasker.logic.schedule_ai import ScheduleOptimizer, GeneticScheduleOptimizer
 
+# 起動時にアセットバージョンを生成（デプロイごとに変わる）
+ASSET_VERSION = hashlib.md5(str(time_module.time()).encode()).hexdigest()[:8]
+
 app = Flask(__name__, 
             template_folder='templates',
             static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'moon-tasker-secret-key-2024')
+
+# 静的ファイルのブラウザキャッシュを無効化
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # セッションCookieの設定（IP経由でのアクセスでも正しく動作するよう）
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -32,6 +40,22 @@ app.config['SESSION_COOKIE_PATH'] = '/'
 
 # グローバルインスタンス（guest_id不要なもの）
 moon_calc = MoonCycleCalculator()
+
+
+@app.after_request
+def add_cache_headers(response):
+    """静的ファイルにno-cacheヘッダーを追加"""
+    if 'static' in request.path:
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
+
+@app.context_processor
+def inject_asset_version():
+    """テンプレートにアセットバージョンを注入（キャッシュバスティング用）"""
+    return {'asset_version': ASSET_VERSION}
 
 
 def get_guest_id():

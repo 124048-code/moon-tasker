@@ -13,13 +13,13 @@
         rel="stylesheet">
 
     <!-- Main Stylesheet -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_version }}">
 
     <!-- Cloud Storage Sync Script -->
-    <script src="{{ url_for('static', filename='js/storage_sync.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/storage_sync.js') }}?v={{ asset_version }}"></script>
 
     <!-- Audio Manager -->
-    <script src="{{ url_for('static', filename='js/audio_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/audio_manager.js') }}?v={{ asset_version }}"></script>
 
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -144,7 +144,7 @@
     </script>
 
     <!-- Audio Manager -->
-    <script src="{{ url_for('static', filename='js/audio_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/audio_manager.js') }}?v={{ asset_version }}"></script>
     <script>
         document.addEventListener('click', function (e) {
             const target = e.target.closest('button, a.btn, .list-item');
