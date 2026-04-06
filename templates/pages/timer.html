@@ -342,14 +342,33 @@
             return;
         }
 
+        // タスクデータをリセット
+        window.__playlistTasksData = null;
+
         const response = await fetch(`/timer/playlist/${playlistId}/tasks`);
         const html = await response.text();
         document.getElementById('schedule-container').innerHTML = html;
 
-        const tasksData = document.getElementById('tasks-data');
-        if (tasksData) {
-            timerState.tasks = JSON.parse(tasksData.textContent);
-            startBtn.disabled = timerState.tasks.length === 0;
+        // 新方式: window.__playlistTasksData（パーシャル内のscriptで設定される）
+        if (window.__playlistTasksData && window.__playlistTasksData.length > 0) {
+            timerState.tasks = window.__playlistTasksData;
+            startBtn.disabled = false;
+        } else {
+            // フォールバック: 旧方式のscript#tasks-data
+            const tasksDataEl = document.getElementById('tasks-data');
+            if (tasksDataEl) {
+                try {
+                    timerState.tasks = JSON.parse(tasksDataEl.textContent);
+                    startBtn.disabled = timerState.tasks.length === 0;
+                } catch (e) {
+                    console.error('Failed to parse tasks data:', e);
+                    timerState.tasks = [];
+                    startBtn.disabled = true;
+                }
+            } else {
+                timerState.tasks = [];
+                startBtn.disabled = true;
+            }
         }
     });
 

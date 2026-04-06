@@ -263,7 +263,8 @@ def get_playlist_tasks(playlist_id):
             'break_duration': t.break_duration,
             'difficulty': t.difficulty,
             'priority': t.priority,
-            'status': t.status
+            'status': t.status,
+            'pt_id': getattr(t, 'pt_id', None)
         } for t in tasks]
         
         print(f"[TIMER_TASKS] Rendering with {len(tasks_json)} tasks")
@@ -375,7 +376,7 @@ def playlist():
         selected_id = request.args.get('selected')
         selected_tasks = []
         
-        # クラウドプレイリストのタスクを取得
+        # クラウドプレイリストのタスクを取得（pt_id付き）
         if selected_id:
             playlist_task_data = cloud_db.get_playlist_tasks(selected_id)
             # JOINされたuser_tasksデータを直接使用
@@ -389,10 +390,11 @@ def playlist():
                         'break_duration': user_task.get('break_duration', 5),
                         'difficulty': user_task.get('difficulty', 3),
                         'priority': user_task.get('priority', 0),
-                        'status': user_task.get('status', 'pending')
+                        'status': user_task.get('status', 'pending'),
+                        'pt_id': pt.get('pt_id') or pt.get('id')  # playlist_tasksの行ID
                     })())
     else:
-        # ゲスト: ローカルDBから取得
+        # ゲスト: ローカルDBから取得（pt_id付き）
         playlists = get_db().get_all_playlists()
         tasks = get_db().get_all_tasks()
         pending_tasks = [t for t in tasks if t.status == "pending"]
@@ -462,22 +464,22 @@ def add_to_playlist(playlist_id, task_id):
     return redirect(url_for('playlist', selected=playlist_id))
 
 
-@app.route('/playlist/<playlist_id>/remove/<task_id>', methods=['POST'])
-def remove_from_playlist(playlist_id, task_id):
-    """タスクをプレイリストから削除"""
+@app.route('/playlist/<playlist_id>/remove-pt/<pt_id>', methods=['POST'])
+def remove_from_playlist(playlist_id, pt_id):
+    """タスクをプレイリストから削除（pt_id=playlist_tasks行ID で1エントリだけ削除）"""
     user_id = session.get('user_id')
     if user_id:
         from moon_tasker.cloud.supabase_client import get_cloud_db
         cloud_db = get_cloud_db()
-        cloud_db.remove_task_from_playlist(playlist_id, task_id)
+        cloud_db.remove_task_from_playlist_by_id(playlist_id, pt_id)
     else:
-        get_db().remove_task_from_playlist(int(playlist_id), int(task_id))
+        get_db().remove_task_from_playlist_by_ptid(int(pt_id))
     return redirect(url_for('playlist', selected=playlist_id))
 
 
-@app.route('/playlist/<playlist_id>/move/<task_id>/<direction>', methods=['POST'])
-def move_task_in_playlist(playlist_id, task_id, direction):
-    """プレイリスト内でタスクを移動"""
+@app.route('/playlist/<playlist_id>/move-pt/<pt_id>/<direction>', methods=['POST'])
+def move_task_in_playlist(playlist_id, pt_id, direction):
+    """プレイリスト内でタスクを移動（pt_id=playlist_tasks行ID で個別移動）"""
     user_id = session.get('user_id')
     
     if user_id:
@@ -485,45 +487,44 @@ def move_task_in_playlist(playlist_id, task_id, direction):
         from moon_tasker.cloud.supabase_client import get_cloud_db
         cloud_db = get_cloud_db()
         tasks = cloud_db.get_playlist_tasks(playlist_id)
-        print(f"[MOVE_TASK] playlist_id={playlist_id}, task_id={task_id}, direction={direction}")
-        print(f"[MOVE_TASK] tasks from DB: {tasks}")
+        print(f"[MOVE_TASK] playlist_id={playlist_id}, pt_id={pt_id}, direction={direction}")
         
-        # get_playlist_tasksは {'task_id': '...', 'user_tasks': {...}} 形式を返す
-        task_ids = [str(t.get('task_id')) for t in tasks if t.get('task_id')]
-        print(f"[MOVE_TASK] task_ids: {task_ids}")
+        # pt_id（行ID）のリストを作成
+        pt_ids = [str(t.get('pt_id') or t.get('id')) for t in tasks]
+        print(f"[MOVE_TASK] pt_ids: {pt_ids}")
         
-        str_task_id = str(task_id)
+        str_pt_id = str(pt_id)
         
-        if str_task_id in task_ids:
-            idx = task_ids.index(str_task_id)
+        if str_pt_id in pt_ids:
+            idx = pt_ids.index(str_pt_id)
             print(f"[MOVE_TASK] Found at index {idx}")
             if direction == 'up' and idx > 0:
-                task_ids[idx], task_ids[idx-1] = task_ids[idx-1], task_ids[idx]
-                print(f"[MOVE_TASK] Moved up: {task_ids}")
-            elif direction == 'down' and idx < len(task_ids) - 1:
-                task_ids[idx], task_ids[idx+1] = task_ids[idx+1], task_ids[idx]
-                print(f"[MOVE_TASK] Moved down: {task_ids}")
-            cloud_db.reorder_playlist_tasks(playlist_id, task_ids)
+                pt_ids[idx], pt_ids[idx-1] = pt_ids[idx-1], pt_ids[idx]
+                print(f"[MOVE_TASK] Moved up: {pt_ids}")
+            elif direction == 'down' and idx < len(pt_ids) - 1:
+                pt_ids[idx], pt_ids[idx+1] = pt_ids[idx+1], pt_ids[idx]
+                print(f"[MOVE_TASK] Moved down: {pt_ids}")
+            cloud_db.reorder_playlist_tasks_by_ids(playlist_id, pt_ids)
         else:
-            print(f"[MOVE_TASK] task_id {str_task_id} not found in {task_ids}")
+            print(f"[MOVE_TASK] pt_id {str_pt_id} not found in {pt_ids}")
     else:
-        # ゲストユーザー: ローカルDB
+        # ゲストユーザー: ローカルDB（pt_idベース）
         try:
             pl_id = int(playlist_id)
-            t_id = int(task_id)
+            target_pt_id = int(pt_id)
         except ValueError:
             return redirect(url_for('playlist', selected=playlist_id))
         
         tasks = get_db().get_playlist_tasks(pl_id)
-        task_ids = [t.id for t in tasks]
+        pt_ids = [t.pt_id for t in tasks]
         
-        if t_id in task_ids:
-            idx = task_ids.index(t_id)
+        if target_pt_id in pt_ids:
+            idx = pt_ids.index(target_pt_id)
             if direction == 'up' and idx > 0:
-                task_ids[idx], task_ids[idx-1] = task_ids[idx-1], task_ids[idx]
-            elif direction == 'down' and idx < len(task_ids) - 1:
-                task_ids[idx], task_ids[idx+1] = task_ids[idx+1], task_ids[idx]
-            get_db().reorder_playlist_tasks(pl_id, task_ids)
+                pt_ids[idx], pt_ids[idx-1] = pt_ids[idx-1], pt_ids[idx]
+            elif direction == 'down' and idx < len(pt_ids) - 1:
+                pt_ids[idx], pt_ids[idx+1] = pt_ids[idx+1], pt_ids[idx]
+            get_db().reorder_playlist_tasks_by_ptids(pt_ids)
     
     return redirect(url_for('playlist', selected=playlist_id))
 
@@ -542,7 +543,29 @@ def optimize_playlist(playlist_id):
     except ValueError:
         pl_id = playlist_id
     
-    tasks = get_db().get_playlist_tasks(pl_id)
+    if user_id:
+        from moon_tasker.cloud.supabase_client import get_cloud_db
+        cloud_db = get_cloud_db()
+        playlist_task_data = cloud_db.get_playlist_tasks(playlist_id)
+        tasks = []
+        pt_id_map = {}  # task.id -> pt_id のマッピング（重複時は順序保持）
+        for pt in playlist_task_data:
+            user_task = pt.get('user_tasks')
+            if user_task:
+                t = type('Task', (), {
+                    'id': user_task['id'],
+                    'title': user_task['title'],
+                    'duration': user_task.get('duration', 25),
+                    'break_duration': user_task.get('break_duration', 5),
+                    'difficulty': user_task.get('difficulty', 3),
+                    'priority': user_task.get('priority', 0),
+                    'status': user_task.get('status', 'pending'),
+                    'pt_id': pt.get('pt_id') or pt.get('id')
+                })()
+                tasks.append(t)
+    else:
+        tasks = get_db().get_playlist_tasks(pl_id)
+    
     if not tasks:
         return redirect(url_for('playlist', selected=playlist_id))
     
@@ -560,8 +583,12 @@ def optimize_playlist(playlist_id):
     else:
         optimized = tasks
     
-    task_ids = [t.id for t in optimized]
-    get_db().reorder_playlist_tasks(pl_id, task_ids)
+    # pt_idベースで並び替え
+    pt_ids = [getattr(t, 'pt_id', t.id) for t in optimized]
+    if user_id:
+        cloud_db.reorder_playlist_tasks_by_ids(playlist_id, [str(p) for p in pt_ids])
+    else:
+        get_db().reorder_playlist_tasks_by_ptids(pt_ids)
     
     return redirect(url_for('playlist', selected=playlist_id))
 

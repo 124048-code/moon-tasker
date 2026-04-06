@@ -578,11 +578,11 @@ class Database:
         conn.close()
     
     def get_playlist_tasks(self, playlist_id: int) -> List[Task]:
-        """プレイリスト内のタスクを順序付きで取得"""
+        """プレイリスト内のタスクを順序付きで取得（pt_id付き）"""
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT t.* FROM tasks t
+            SELECT t.*, pt.id AS pt_id FROM tasks t
             JOIN playlist_tasks pt ON t.id = pt.task_id
             WHERE pt.playlist_id = ?
             ORDER BY pt.order_index ASC
@@ -602,7 +602,8 @@ class Database:
                 priority=row['priority'],
                 status=row['status'],
                 created_at=row['created_at'],
-                completed_at=row['completed_at']
+                completed_at=row['completed_at'],
+                pt_id=row['pt_id']
             )
             tasks.append(task)
         return tasks
@@ -627,8 +628,16 @@ class Database:
         conn.commit()
         conn.close()
     
+    def remove_task_from_playlist_by_ptid(self, pt_id: int):
+        """playlist_tasksの行IDで1エントリだけ削除（同一タスク複数対応）"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM playlist_tasks WHERE id = ?", (pt_id,))
+        conn.commit()
+        conn.close()
+    
     def remove_task_from_playlist(self, playlist_id: int, task_id: int):
-        """タスクをプレイリストから削除"""
+        """タスクをプレイリストから削除（後方互換用：全削除）"""
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute("""
@@ -638,8 +647,21 @@ class Database:
         conn.commit()
         conn.close()
     
+    def reorder_playlist_tasks_by_ptids(self, pt_ids: List[int]):
+        """playlist_tasksの行IDリストで順序を更新（同一タスク複数対応）"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        for index, pt_id in enumerate(pt_ids):
+            cursor.execute("""
+                UPDATE playlist_tasks 
+                SET order_index = ?
+                WHERE id = ?
+            """, (index, pt_id))
+        conn.commit()
+        conn.close()
+    
     def reorder_playlist_tasks(self, playlist_id: int, task_ids: List[int]):
-        """プレイリスト内のタスク順序を更新"""
+        """プレイリスト内のタスク順序を更新（後方互換用）"""
         conn = self.get_connection()
         cursor = conn.cursor()
         for index, task_id in enumerate(task_ids):

@@ -19,6 +19,7 @@ class Task:
     status: str = "pending"  # pending, in_progress, completed, failed
     created_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    pt_id: Optional[int] = None  # playlist_tasks テーブルの行ID（プレイリスト内で一意識別用）
 
 
 @dataclass

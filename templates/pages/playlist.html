@@ -50,15 +50,15 @@
     <div class="list-item">
         <span class="text-muted" style="width: 24px;">{{ loop.index }}.</span>
 
-        <!-- 順序変更ボタン -->
+        <!-- 順序変更ボタン（pt_idベース） -->
         <div class="flex flex-col gap-1" style="margin-right: 8px;">
             {% if not loop.first %}
-            <form action="/playlist/{{ selected_id }}/move/{{ task.id }}/up" method="post" style="display: inline;">
+            <form action="/playlist/{{ selected_id }}/move-pt/{{ task.pt_id }}/up" method="post" style="display: inline;">
                 <button type="submit" class="action-btn" style="font-size: 12px;">▲</button>
             </form>
             {% endif %}
             {% if not loop.last %}
-            <form action="/playlist/{{ selected_id }}/move/{{ task.id }}/down" method="post" style="display: inline;">
+            <form action="/playlist/{{ selected_id }}/move-pt/{{ task.pt_id }}/down" method="post" style="display: inline;">
                 <button type="submit" class="action-btn" style="font-size: 12px;">▼</button>
             </form>
             {% endif %}
@@ -67,7 +67,7 @@
         <span class="title">{{ task.title }}</span>
         <span class="meta">{{ task.duration }}分</span>
         <span class="meta">{{ '⭐' * task.difficulty }}</span>
-        <form action="/playlist/{{ selected_id }}/remove/{{ task.id }}" method="post" style="display: inline;">
+        <form action="/playlist/{{ selected_id }}/remove-pt/{{ task.pt_id }}" method="post" style="display: inline;">
             <button type="submit" class="action-btn" style="color: #ff9800;">✕</button>
         </form>
     </div>

@@ -1,8 +1,4 @@
 <!-- Playlist tasks partial for HTMX -->
-<script id="tasks-data" type="application/json">
-{{ tasks | tojson | safe }}
-</script>
-
 {% if tasks|length == 0 %}
 <p class="text-gray-400">このプレイリストにはタスクがありません</p>
 {% else %}
@@ -17,4 +13,26 @@
 </div>
 
 <p class="text-success mt-4">✅ 予想終了: {{ estimated_end }}</p>
+
+<script>
+// タスクデータをJavaScript変数として安全に渡す（バグ2修正: tojsonの代わりに直接JS配列を生成）
+(function() {
+    var tasksData = [
+        {% for t in tasks %}
+        {
+            "id": {{ t.id|tojson }},
+            "title": {{ t.title|tojson }},
+            "duration": {{ t.duration|tojson }},
+            "break_duration": {{ t.break_duration|tojson }},
+            "difficulty": {{ t.difficulty|tojson }},
+            "priority": {{ t.priority|tojson }},
+            "status": {{ t.status|tojson }},
+            "pt_id": {{ t.pt_id|tojson if t.pt_id is defined else 'null' }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    // DOMに埋め込む代わりにwindowオブジェクトに直接設定
+    window.__playlistTasksData = tasksData;
+})();
+</script>
 {% endif %}

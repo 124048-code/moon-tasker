@@ -465,8 +465,8 @@ class SupabaseDB:
             return []
         
         try:
-            # Step 1: プレイリストに紐付いたtask_idのリストを取得（positionでソート）
-            url1 = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=task_id&order=position.asc"
+            # Step 1: プレイリストに紐付いたid, task_idのリストを取得（positionでソート）
+            url1 = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}&select=id,task_id&order=position.asc"
             print(f"[GET_PLAYLIST_TASKS] Step 1 URL: {url1}")
             response1 = httpx.get(url1, headers=self._get_headers(), timeout=10.0)
             print(f"[GET_PLAYLIST_TASKS] Step 1 Status: {response1.status_code}, Response: {response1.text}")
@@ -474,19 +474,18 @@ class SupabaseDB:
             if response1.status_code != 200:
                 return []
             
-            task_id_rows = response1.json()
-            if not task_id_rows:
+            pt_rows = response1.json()
+            if not pt_rows:
                 print("[GET_PLAYLIST_TASKS] No tasks in playlist")
                 return []
             
-            task_ids = [row['task_id'] for row in task_id_rows if row.get('task_id')]
-            print(f"[GET_PLAYLIST_TASKS] Found task_ids: {task_ids}")
+            task_ids = list(set(row['task_id'] for row in pt_rows if row.get('task_id')))
+            print(f"[GET_PLAYLIST_TASKS] Found unique task_ids: {task_ids}")
             
             if not task_ids:
                 return []
             
             # Step 2: タスクの詳細を取得
-            # Supabase "in" クエリは (id1,id2,id3) 形式 - UUIDは引用符不要
             ids_param = ",".join(task_ids)
             url2 = f"{SUPABASE_URL}/rest/v1/user_tasks?id=in.({ids_param})&select=*"
             print(f"[GET_PLAYLIST_TASKS] Step 2 URL: {url2}")
@@ -495,12 +494,17 @@ class SupabaseDB:
             
             if response2.status_code == 200:
                 tasks = response2.json()
-                # タスク順序を維持（playlist_tasksの順序に従う）
                 task_map = {t['id']: t for t in tasks}
                 ordered_tasks = []
-                for tid in task_ids:
+                for pt_row in pt_rows:
+                    tid = pt_row.get('task_id')
+                    pt_id = pt_row.get('id')
                     if tid in task_map:
-                        ordered_tasks.append({'task_id': tid, 'user_tasks': task_map[tid]})
+                        ordered_tasks.append({
+                            'pt_id': pt_id,
+                            'task_id': tid,
+                            'user_tasks': task_map[tid]
+                        })
                 print(f"[GET_PLAYLIST_TASKS] Returning {len(ordered_tasks)} tasks")
                 return ordered_tasks
         except Exception as e:
@@ -536,8 +540,22 @@ class SupabaseDB:
             print(f"プレイリストタスク追加エラー: {e}")
         return False
     
+    def remove_task_from_playlist_by_id(self, playlist_id: str, pt_id: str) -> bool:
+        """playlist_tasksの行IDで1エントリだけ削除（同一タスク複数対応）"""
+        if not SUPABASE_URL:
+            return False
+        
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?id=eq.{pt_id}&playlist_id=eq.{playlist_id}"
+            response = httpx.delete(url, headers=self._get_headers(), timeout=10.0)
+            print(f"[REMOVE_BY_ID] pt_id={pt_id}, status={response.status_code}")
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"プレイリストタスク削除エラー（行ID）: {e}")
+        return False
+    
     def remove_task_from_playlist(self, playlist_id: str, task_id: str) -> bool:
-        """タスクをプレイリストから削除"""
+        """タスクをプレイリストから削除（後方互換用：全削除）"""
         if not SUPABASE_URL:
             return False
         
@@ -549,8 +567,33 @@ class SupabaseDB:
             print(f"プレイリストタスク削除エラー: {e}")
         return False
     
+    def reorder_playlist_tasks_by_ids(self, playlist_id: str, pt_ids: list) -> bool:
+        """playlist_tasksの行IDリストで順序を更新（同一タスク複数対応）"""
+        if not SUPABASE_URL:
+            print("[REORDER_BY_IDS] No SUPABASE_URL")
+            return False
+        
+        try:
+            print(f"[REORDER_BY_IDS] Reordering playlist {playlist_id} with pt_ids: {pt_ids}")
+            
+            for idx, pt_id in enumerate(pt_ids):
+                url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?id=eq.{pt_id}&playlist_id=eq.{playlist_id}"
+                response = httpx.patch(
+                    url,
+                    headers=self._get_headers(),
+                    json={"position": idx},
+                    timeout=10.0
+                )
+                print(f"[REORDER_BY_IDS] pt_id={pt_id}, position={idx}, status={response.status_code}")
+            
+            print("[REORDER_BY_IDS] Reorder completed")
+            return True
+        except Exception as e:
+            print(f"プレイリスト再順序化エラー（行ID）: {e}")
+        return False
+    
     def reorder_playlist_tasks(self, playlist_id: str, task_ids: list) -> bool:
-        """プレイリスト内のタスク順序を更新（削除して再追加）"""
+        """プレイリスト内のタスク順序を更新（後方互換用：削除して再追加）"""
         if not SUPABASE_URL:
             print("[REORDER_PLAYLIST_TASKS] No SUPABASE_URL")
             return False
@@ -558,12 +601,10 @@ class SupabaseDB:
         try:
             print(f"[REORDER_PLAYLIST_TASKS] Reordering playlist {playlist_id} with tasks: {task_ids}")
             
-            # 既存のタスクをすべて削除
             delete_url = f"{SUPABASE_URL}/rest/v1/user_playlist_tasks?playlist_id=eq.{playlist_id}"
             del_response = httpx.delete(delete_url, headers=self._get_headers(), timeout=10.0)
             print(f"[REORDER_PLAYLIST_TASKS] Delete status: {del_response.status_code}")
             
-            # 新しい順序でタスクを再追加（positionを設定）
             for idx, task_id in enumerate(task_ids):
                 self.add_task_to_playlist(playlist_id, str(task_id), position=idx)
             
