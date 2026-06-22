@@ -63,6 +63,10 @@ def get_guest_id():
     # ログインユーザーの場合はNone（クラウドデータを使用）
     if session.get('user_id'):
         return None
+    # ローカル版: 固定guest_idでデータを永続化
+    local_guest_id = os.environ.get('MOON_TASKER_LOCAL_GUEST_ID')
+    if local_guest_id:
+        return local_guest_id
     # ゲストユーザーの場合はセッションIDを使用
     if 'guest_id' not in session:
         session['guest_id'] = str(uuid.uuid4())

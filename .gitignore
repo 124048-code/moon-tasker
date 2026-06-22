@@ -15,3 +15,8 @@ venv/
 
 # Flet build outputs
 dist/
+
+# Local launcher (ローカル専用)
+local_launcher.py
+起動_MoonTasker.bat
+起動_MoonTasker*.lnk
